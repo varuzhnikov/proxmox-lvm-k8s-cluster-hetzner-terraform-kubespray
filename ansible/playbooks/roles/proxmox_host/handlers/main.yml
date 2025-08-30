@@ -1,0 +1,6 @@
+---
+- name: reload networking
+  command: ifreload -a
+
+- name: save firewall rules
+  command: netfilter-persistent save

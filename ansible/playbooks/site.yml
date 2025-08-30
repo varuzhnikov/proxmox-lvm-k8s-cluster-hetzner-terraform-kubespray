@@ -1,0 +1,8 @@
+---
+- name: Prepare Proxmox host (Debian 12)
+  hosts: proxmox
+  gather_facts: yes
+  become: yes
+
+  roles:
+  - proxmox_host

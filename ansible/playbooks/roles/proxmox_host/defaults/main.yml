@@ -1,0 +1,12 @@
+# Network
+bridge_name: vmbr0
+bridge_cidr: "172.16.16.1/24"
+bridge_network: "172.16.16.0/24"
+
+# Auto-detect public iface; override with -e public_iface=enp5s0
+public_iface: "{{ ansible_default_ipv4.interface }}"
+
+# Storage
+storage_id: "local-lvm"
+volume_group: "vg0"
+content_types: "images,rootdir"

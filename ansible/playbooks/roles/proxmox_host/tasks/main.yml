@@ -1,0 +1,16 @@
+---
+- name: Assert Debian 12 (bookworm)
+  assert:
+    that:
+      - ansible_distribution == "Debian"
+      - ansible_distribution_major_version | int == 12
+    fail_msg: "This role targets Debian 12 (bookworm) only."
+
+- name: Include Proxmox install tasks
+  import_tasks: install_proxmox.yml
+
+- name: Include network configuration
+  import_tasks: configure_network.yml
+
+- name: Include LVM setup for Proxmox
+  import_tasks: configure_lvm.yml

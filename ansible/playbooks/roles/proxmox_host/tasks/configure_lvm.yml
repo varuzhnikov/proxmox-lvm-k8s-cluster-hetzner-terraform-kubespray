@@ -1,0 +1,16 @@
+- name: Check if LVM storage '{{ storage_id }}' already exists
+  ansible.builtin.command: pvesm status --storage {{ storage_id }}
+  register: pvesm_check_result
+  # Don't fail the task even if the command returns an error code
+  # (e.g., storage does not exist yet).
+  failed_when: false
+  # Mark this task as not changing anything in the system.
+  changed_when: false
+
+- name: Add LVM storage '{{ storage_id }}' for vg '{{ volume_group }}' if not present
+  ansible.builtin.command: >
+    pvesm add lvm {{ storage_id }}
+    --vgname {{ volume_group }}
+    --content {{ content_types }}
+  when: pvesm_check_result.rc != 0
+  changed_when: true
