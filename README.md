@@ -16,7 +16,7 @@ This repo helps you deploy a **Kubernetes cluster** on top of **Proxmox VE**, us
 ## 📦 Contents
 
 - `ansible/` — installs Proxmox VE on Debian, configures vmbr0 NAT bridge, and connects LVM
-- `terraform/` — spins up VMs on Proxmox
+- `terraform/` — (planned) spins up VMs on Proxmox
 - `kubespray/` — (planned) cluster bootstrap
 
 ## 🚀 Quickstart
@@ -110,4 +110,4 @@ ansible-playbook -i inventory.yaml install-proxmox.yml
 
 📌 Author
 
-Follow Vitalii Ruzhnikov on LinkedIn
+Follow Vitaly Ruzhnikov on [LinkedIn](https://www.linkedin.com/in/vitaly-ruzhnikov-86109234/)
