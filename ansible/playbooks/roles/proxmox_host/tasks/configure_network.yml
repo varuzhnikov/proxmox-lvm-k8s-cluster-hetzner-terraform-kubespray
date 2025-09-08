@@ -1,0 +1,34 @@
+- name: Install netfilter-persistent
+  apt:
+    name: 
+      - netfilter-persistent
+      - iptables-persistent
+    state: present
+    update_cache: yes
+
+# Drop inbound TCP and UDP traffic on port 111 (portmap/rpcbind) to harden the server.
+# This is commonly flagged by security audits and abuse complaints, especially on Hetzner.
+# Leaving it open may expose the server to scanning, abuse, or exploitation.
+- name: Drop TCP and UDP port 111 on public interface
+  iptables:
+    chain: INPUT
+    protocol: "{{ item.protocol }}"
+    destination_port: 111
+    jump: DROP
+    state: present
+    in_interface: "{{ public_iface }}"
+  loop:
+    - { protocol: "tcp" }
+    - { protocol: "udp" }
+  notify: 
+    - save firewall rules
+
+- name: Append vmbr0 to /etc/network/interfaces (idempotent)
+  blockinfile:
+    path: /etc/network/interfaces
+    marker: "# {mark} ANSIBLE vmbr0 NAT BLOCK"
+    block: "{{ lookup('template', 'vmbr0_block.j2') }}"
+    insertafter: EOF
+  notify: 
+    - reload networking
+    - save firewall rules
