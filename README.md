@@ -86,10 +86,12 @@ After confirming:
 
 #### 5. Run ansible to install proxmox and setup NAT network and lvm storage
 
+Clone repo and adjust a server ip address in the ```ansible/inventory/hosts.ini```
 
+After that:
 ```bash
 cd ansible/
-ansible-playbook -i inventory.yaml install-proxmox.yml
+ANSIBLE_CONFIG=./ansible.cfg ansible-playbook -i inventory/hosts.ini playbooks/site.yml
 ```
 
 📌 For a full step-by-step guide, see the companion article: ...
