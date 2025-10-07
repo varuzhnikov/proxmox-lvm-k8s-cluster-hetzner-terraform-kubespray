@@ -91,7 +91,7 @@ Clone repo and adjust a server ip address in the ```ansible/inventory/hosts.ini`
 After that:
 ```bash
 cd ansible/
-ANSIBLE_CONFIG=./ansible.cfg ansible-playbook -i inventory/hosts.ini playbooks/site.yml
+ANSIBLE_CONFIG=./ansible.cfg ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags bootstrap
 ```
 
 📌 For a full step-by-step guide, see the companion article: ...
