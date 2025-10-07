@@ -1,0 +1,145 @@
+---
+# Purpose:
+#   - Create Proxmox VM template (Ubuntu cloud-init)
+#   - Cloud-init image will be downloaded to {{ pve_cloud_image }}
+# NOTE:
+# We intentionally avoid using `community.general.proxmox_kvm` plugin here.
+# Reasons:
+#   - The API user/token is already created via SSH, so continuing via CLI keeps the whole flow consistent.
+#   - CLI commands are simpler, more transparent, and require no extra dependencies.
+#   - Easier to debug and reproduce in PoC environments.
+
+- name: Download Ubuntu 22.04 cloud-init image (if missing)
+  get_url:
+    url: https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+    dest: "{{ pve_cloud_image }}"
+    mode: '0644'
+
+- name: Check if VM {{ pve_vm_id }} already exists
+  command: qm config {{ pve_vm_id }}
+  register: vm_check
+  failed_when: vm_check.rc not in [0, 2]
+  changed_when: false
+
+- name: Create placeholder VM (if missing)
+  command: >
+    qm create {{ pve_vm_id }}
+      --name {{ pve_vm_name }}
+      --memory 2048
+      --cores 2
+      --machine q35
+      --bios ovmf
+      --efidisk0 {{ storage_id }}:0,pre-enrolled-keys=1
+      --net0 virtio,bridge={{ bridge_name }}
+  # Idempotency:
+  #   - If the file is already present, Ansible skips this task
+  #   - Because VM is already created
+  args:
+    creates: "/etc/pve/qemu-server/{{ pve_vm_id }}.conf"  
+
+### Import qcow2 into storage ###
+#--------------------------------------------#
+
+# Compute expected volume ID
+- name: Set expected imported volume ID
+  set_fact:
+    pve_imported_volid: "{{ storage_id }}:vm-{{ pve_vm_id }}-disk-1"
+
+- name: Debug imported volume ID
+  debug:
+    msg: "Expected volume ID: {{ pve_imported_volid }}"
+
+# Compute expected device path (using pvesm path)
+- name: Compute expected device path for imported volume at the next step
+  command: pvesm path {{ pve_imported_volid }}
+  register: pve_device_path
+  failed_when: false
+  changed_when: false
+
+
+# Import only if volume doesn't exist
+- name: Import cloud image into storage
+  command: >
+    qm importdisk {{ pve_vm_id }} {{ pve_cloud_image }} {{ storage_id }}
+  # Idempotency:
+  #   - If this path exists, Ansible skips the task
+  #   - Because disk is already created
+  args:
+    creates: "{{ pve_device_path.stdout | trim }}"
+  register: import_result
+  changed_when: >
+    import_result.rc == 0 and
+    ('skipped' not in import_result.stdout | lower)
+
+# Read config VM
+- name: Read VM config
+  command: qm config {{ pve_vm_id }}
+  register: vm_cfg
+  changed_when: false
+
+# Attach imported disk to VM (idempotent)
+- name: Attach imported disk to VM
+  command: >
+    qm set {{ pve_vm_id }} --scsihw virtio-scsi-single --scsi0 {{ storage_id }}:vm-{{ pve_vm_id }}-disk-1
+  register: attach_result
+  # ~ - concatenate string in jinja template
+  when: "'scsi0: ' ~ pve_imported_volid not in vm_cfg.stdout"
+
+
+# Compute expected cloud-init volume ID
+- name: Set expected cloud-init volume ID
+  set_fact:
+    pve_cloudinit_volid: "{{ storage_id }}:vm-{{ pve_vm_id }}-cloudinit"  
+
+# Attach cloud-init drive (idempotent)
+- name: Attach cloud-init drive
+  command: >
+    qm set {{ pve_vm_id }} --ide2 {{ storage_id }}:cloudinit
+  register: cloudinit_attach_result
+  # Idempotency:
+  #   - Check VM config; skip if ide2: already present
+  #   - ~ concatenates strings, so 'ide2: local-lvm:cloudinit'
+  when: "'ide2: ' ~ pve_cloudinit_volid not in vm_cfg.stdout"
+
+# Attach serial console (only if not already configured)
+- name: Enable serial console (idempotent)
+  command: >
+    qm set {{ pve_vm_id }} --serial0 socket
+  register: serial_attach_result
+  when: "'serial0: socket' not in vm_cfg.stdout"
+
+# Enable VGA on serial0 (only if not already configured)
+- name: Enable VGA on serial0 (idempotent)
+  command: >
+    qm set {{ pve_vm_id }} --vga serial0
+  register: vga_attach_result
+  when: "'vga: serial0' not in vm_cfg.stdout"
+
+# Set the right boot order
+- name: Set boot order to scsi0 (idempotent)
+  command: >
+    qm set {{ pve_vm_id }} --boot order=scsi0
+  register: boot_order_result
+  when: "'boot: order=scsi0' not in vm_cfg.stdout"
+
+
+# Enable QEMU Guest Agent (idempotent)
+- name: Enable QEMU Guest Agent (idempotent)
+  command: >
+    qm set {{ pve_vm_id }} --agent enabled=1
+  register: qemu_agent_result
+  when: "'agent: enabled=1' not in vm_cfg.stdout"
+
+- name: Convert VM into template (only if not yet a template)
+  command: >
+    qm template {{ pve_vm_id }}
+  register: template_result
+  when: "'template: 1' not in vm_cfg.stdout"
+
+- name: Debug volume existence check
+  debug:
+    msg:
+      - "Expected volid: {{ pve_imported_volid }}"
+      - "pvesm path: {{ pve_device_path | trim }}"
+      - "import result rc: {{ import_result.rc }}"
+      - "import result stdout: {{ import_result.stdout | default('empty') }}"

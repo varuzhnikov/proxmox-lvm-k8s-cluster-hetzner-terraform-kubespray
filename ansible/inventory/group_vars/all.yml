@@ -1,0 +1,6 @@
+# Network
+bridge_name: vmbr0
+
+# Storage
+storage_id: "local-lvm"
+volume_group: "vg0"

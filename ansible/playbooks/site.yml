@@ -1,8 +1,15 @@
 ---
-- name: Prepare Proxmox host (Debian 12)
+- name: Prepare Proxmox host and create VM template
   hosts: proxmox
   gather_facts: yes
   become: yes
 
   roles:
-  - proxmox_host
+    - role: proxmox_host
+      tags: 
+        - bootstrap
+        - proxmox_host               # Prepares Proxmox (Debian, network, LVM, packages)
+    - role: proxmox_vm_template
+      tags:
+        - bootstrap
+        - proxmox_vm_template        # Builds golden vm template for cloning via Terraform 
