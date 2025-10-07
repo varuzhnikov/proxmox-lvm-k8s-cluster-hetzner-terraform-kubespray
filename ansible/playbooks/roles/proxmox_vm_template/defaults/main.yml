@@ -1,0 +1,10 @@
+# --- Proxmox VM template defaults ---
+
+# VM parameters
+pve_vm_id: 9000
+pve_vm_name: "ubuntu-22-04-template"
+pve_vm_memory: 2048
+pve_vm_cores: 2
+
+# Cloud-init source image (qcow2, downloaded into ISO folder)
+pve_cloud_image: "/var/lib/vz/template/iso/ubuntu-22.04-cloudimg-amd64.img"
