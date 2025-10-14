@@ -132,12 +132,3 @@
   delegate_to: localhost  # Run on the Ansible controller, not on Proxmox hosts
   run_once: true          # Avoid duplicate writes if multiple hosts are targeted 
   when: token_add.rc == 0 # Save only when a new token was actually created
-
-# - name: Save API token to file if newly created
-#   copy:
-#     content: "{{ token_add.stdout }}"
-#     dest: "{{ pve_token_file }}"
-#     mode: '0600'
-#   delegate_to: localhost   # Run on the Ansible controller, not on Proxmox hosts
-#   run_once: true           # Avoid duplicate writes if multiple hosts are targeted
-#   when: token_add.rc == 0  # Save only when a new token was actually created
