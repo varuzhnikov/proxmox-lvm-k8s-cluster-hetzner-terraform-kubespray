@@ -1,0 +1,143 @@
+---
+# tasks/main.yml for proxmox_terraform_access
+# Purpose:
+#   - Create a dedicated Proxmox service user for Terraform
+#   - Assign it a role with required privileges
+#   - Generate an API token (saved locally, ignored by git)
+#
+# Notes:
+#   - This avoids the "chicken-and-egg" problem: community.proxmox modules
+#     need API access, but here we create the API user *without* API, via ssh.
+#   - Proxmox CLI (`pveum`) has quirky return codes (rc=0 / rc=2 / rc=255).
+#     Instead of hardcoding rc, we match stderr messages like "already exists"
+#     for true idempotency across all Proxmox 6/7/8 versions.
+
+- name: Ensure Terraform service user for Proxmox exists (no password)
+  ansible.builtin.command: >
+    pveum user add {{ pve_api_user }}
+  register: user_add
+  failed_when: >
+    user_add.rc != pve_rc_ok and
+    ('already exists' not in user_add.stderr | lower)
+  # Idempotency:
+  #   - rc == 0 -> user created -> "changed"
+  #   - rc != 0 + "already exists"-> safe  "ok"
+  #   - any other case -> fail
+  changed_when: user_add.rc == pve_rc_ok
+  
+- name: Ensure Terraform role exists
+  ansible.builtin.command: >
+    pveum role add {{ pve_api_role }} -privs "
+    Datastore.Allocate,
+    Datastore.AllocateSpace,
+    Datastore.Audit,
+    Sys.Audit,
+    Sys.Modify,
+    Sys.PowerMgmt,
+    VM.Allocate,
+    VM.Audit,
+    VM.Clone,
+    VM.Config.CDROM,
+    VM.Config.Cloudinit,
+    VM.Config.CPU,
+    VM.Config.Disk,
+    VM.Config.HWType,
+    VM.Config.Memory,
+    VM.Config.Network,
+    VM.Config.Options,
+    VM.Migrate,
+    VM.Monitor,
+    VM.PowerMgmt,
+    SDN.Use"
+  register: role_add
+  # Idempotency logic same as above: tolerate "already exists"
+  failed_when: >
+    role_add.rc != pve_rc_ok and
+    ('already exists' not in role_add.stderr | lower)
+  changed_when: role_add.rc == pve_rc_ok
+
+- name: Read ACL as JSON
+  # Gives us the following std output in case when role already exists:
+  #{
+  #  "path": "/",
+  #  "propagate": 1,
+  #  "roleid": "TerraformRole",
+  #  "type": "user",
+  #  "ugid": "terraform@pve"
+  #}
+  command: pveum acl list --output-format json
+  register: acl_json
+  changed_when: false
+
+- name: Parse ACL JSON
+  # Take the JSON output from `pveum acl list --output-format json`
+  # Convert it into a Python/Ansible list of dicts (using from_json)
+  # Store it as a fact (acl_entries) for later filtering.
+  # Mark task as "ok" (not "changed"), since it's just parsing data.
+  set_fact:
+    acl_entries: "{{ acl_json.stdout | from_json }}"
+  changed_when: false
+
+- name: Assign TerraformRole at Datacenter root (/) if missing
+  command: pveum aclmod / -user {{ pve_api_user }} -role {{ pve_api_role }}
+  # This is a Jinja2 expression evaluated by Ansible.
+  # It takes the list of ACL entries (parsed JSON), filters it step by step:
+  #   - keep only items where path == "/"
+  #   - then where roleid == pve_api_role
+  #   - then where ugid == pve_api_user
+  # Finally, it converts the result to a list, measures its length,
+  # and checks if it equals 0 (meaning no such ACL exists).
+  when: >
+    (acl_entries
+     | selectattr('path','equalto','/')
+     | selectattr('roleid','equalto', pve_api_role)
+     | selectattr('ugid','equalto',  pve_api_user)
+     | list | length) == 0
+  changed_when: true
+
+- name: Create API token for Terraform user (JSON output)
+  # `-privsep=0` disables privilege separation:
+  #   the token inherits full role permissions instead of being restricted.
+  ansible.builtin.command: >
+    pveum user token add {{ pve_api_user }} {{ pve_api_token_id }} -privsep=0 --output-format json
+  register: token_add
+  failed_when: >
+    token_add.rc != pve_rc_ok and
+    ('already exists' not in token_add.stderr | lower)
+  changed_when: token_add.rc == pve_rc_ok
+
+- name: Parse token JSON
+  when: token_add.rc == pve_rc_ok
+  set_fact:
+    pve_token: "{{ token_add.stdout | from_json }}"
+  changed_when: false
+
+- name: Ensure secrets directory exists on machine where ansible launched
+  file:
+    path: "{{ inventory_dir }}/../secrets"
+    state: directory
+    mode: '0700'
+  delegate_to: localhost
+  run_once: true
+
+- name: Save token credentials to file
+  copy:
+    content: |
+      {
+        "token_id": "{{ pve_token['full-tokenid'] }}",
+        "secret": "{{ pve_token['value'] }}"
+      }
+    dest: "{{ pve_token_file }}"
+    mode: '0600'
+  delegate_to: localhost  # Run on the Ansible controller, not on Proxmox hosts
+  run_once: true          # Avoid duplicate writes if multiple hosts are targeted 
+  when: token_add.rc == 0 # Save only when a new token was actually created
+
+# - name: Save API token to file if newly created
+#   copy:
+#     content: "{{ token_add.stdout }}"
+#     dest: "{{ pve_token_file }}"
+#     mode: '0600'
+#   delegate_to: localhost   # Run on the Ansible controller, not on Proxmox hosts
+#   run_once: true           # Avoid duplicate writes if multiple hosts are targeted
+#   when: token_add.rc == 0  # Save only when a new token was actually created

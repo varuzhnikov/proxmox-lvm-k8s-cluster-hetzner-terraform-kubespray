@@ -1,0 +1,13 @@
+# --- Proxmox access role defaults ---
+
+# Ok return code
+pve_rc_ok: 0
+
+# Service user and role
+# Note: users in the @pve realm do not have SSH access
+pve_api_user: "terraform@pve"
+pve_api_role: "TerraformRole"
+pve_api_token_id: "terraform-token"
+
+# Where to save token data (ignored by git!)
+pve_token_file: "{{ inventory_dir }}/../secrets/pve_token.json"

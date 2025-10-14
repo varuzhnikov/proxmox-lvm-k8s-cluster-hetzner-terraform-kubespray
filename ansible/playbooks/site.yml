@@ -9,6 +9,10 @@
       tags: 
         - bootstrap
         - proxmox_host               # Prepares Proxmox (Debian, network, LVM, packages)
+    - role: proxmox_terraform_access
+      tags: 
+        - bootstrap
+        - proxmox_terraform_access   # Creates service user and API token for Terraform
     - role: proxmox_vm_template
       tags:
         - bootstrap

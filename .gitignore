@@ -37,4 +37,4 @@ override.tf.json
 terraform.rc
 
 # Ignore generated secrets file after running proxmox_terraform_access
-secrets/*
+ansible/secrets/*
