@@ -94,6 +94,8 @@ cd ansible/
 ANSIBLE_CONFIG=./ansible.cfg ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags bootstrap
 ```
 
+Terraform token will be saved under ansible/secrets folder(ignored by Git)
+
 📌 For a full step-by-step guide, see the companion article: ...
 
 ## 🛠️ Features
@@ -105,7 +107,7 @@ ANSIBLE_CONFIG=./ansible.cfg ansible-playbook -i inventory/hosts.ini playbooks/s
 
 ## 🔜 Roadmap
 
-* ✅ Ansible role for Proxmox + LVM
+* ✅ Ansible role for Proxmox + LVM + NAT + [Cloud Init Ubuntu 22.04 VM Template] + [ Terraform User Token Role Creation ]   
 * Terraform Proxmox provider setup
 * Kubespray integration
 * Monitoring + observability layer (Prometheus, Grafana)
