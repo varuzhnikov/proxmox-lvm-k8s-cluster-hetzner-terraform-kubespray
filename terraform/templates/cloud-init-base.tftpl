@@ -1,0 +1,51 @@
+#cloud-config
+hostname: ${hostname}
+timezone: UTC
+chpasswd:
+  expire: false
+
+users:
+  - name: ${username}
+    groups: sudo
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+    plain_text_passwd: ${password}
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+
+# Workaround for bpg Terraform proxmox provider.
+# We use ssh auth by login and password for cloud-init by default for tty access from proxmox web console
+# and then disable password auth and provide ssh pub key in cloud-init-snippet
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-no-password.conf
+    permissions: '0644'
+    content: |
+      # Disable password authentication for all SSH connections
+      PasswordAuthentication no
+
+package_update: true
+package_upgrade: true
+packages:
+  - qemu-guest-agent
+  - net-tools
+  - curl
+  # Mitigate Ubuntu Cloud Img python3 missing
+  - python3
+runcmd:
+  - systemctl restart sshd
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent
+%{ if enable_k8s }
+  # Ensures persistence after reboot
+  - echo 'br_netfilter' > /etc/modules-load.d/k8s.conf
+  # Loads the module immediately for the current session
+  - modprobe br_netfilter
+  - sysctl -w net.ipv4.ip_forward=1
+  - echo 1 > /proc/sys/net/bridge/bridge-nf-call-iptables
+  - swapoff -a
+  - sed -i '/ swap / s/^/#/' /etc/fstab
+%{ endif }
+
+power_state:
+  mode: reboot

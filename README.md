@@ -98,7 +98,7 @@ Terraform token will be saved under ansible/secrets folder(ignored by Git)
 
 📌 For a full step-by-step guide, see the [companion article](https://blog.hogmetrics.com/64gb-ram-kubernetes-cluster-for-eu39-month-part-1-proxmox-lvm/)
 
-#### 6. Spin up first Ubuntu VM on Proxmox VE via Terraform
+#### 6. Spin up six Ubuntu VM (3 Control Planes + 3 Worker nodes) on Proxmox VE via Terraform
 
 Copy terraform.tfvars.example:
 ```bash
@@ -106,16 +106,16 @@ cd terraform/
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-Put the token from the file obtained on step 5 (ansible/secrets folder) into the terraform.tfvars, adjust a server ip address.
+Put the token from the file obtained on step 5 (ansible/secrets folder) into the terraform.tfvars, adjust a server ip address, and your pub ssh key.
 
 📌 Set up HCP Terraform for remote state storing and lock acquiring, see the [companion article](https://blog.hogmetrics.com/how-to-store-terraform-state-in-terraform-cloud-free-tier/) 
 
-Spin up the first VM:
+Spin up a cluster VMs:
 
 ```
 terraform init
-terraform plan -out first_vm
-terraform apply "first_vm"
+terraform plan -out "k8s"
+terraform apply "k8s"
 ```
 
 After playing with that in case you don't need it anymore, destroy with:
@@ -124,7 +124,10 @@ After playing with that in case you don't need it anymore, destroy with:
 terraform destroy
 ```
 
-📌 For a full step-by-step guide, see the [companion article part 2](https://blog.hogmetrics.com/how-to-create-a-proxmox-vm-template-with-ubuntu-22-04-cloud-init-and-deploy-vm-clones-via-terraform-bpg-proxmox/)
+📌 For a full step-by-step guide, see the :
+ 
+* [companion article part 2](https://blog.hogmetrics.com/how-to-create-a-proxmox-vm-template-with-ubuntu-22-04-cloud-init-and-deploy-vm-clones-via-terraform-bpg-proxmox/)
+* [companion article part 3]
 
 
 ## 🛠️ Features

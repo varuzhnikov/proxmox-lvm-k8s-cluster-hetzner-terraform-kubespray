@@ -1,6 +1,7 @@
 pm_api_url                = "https://<your-server-ip>:8006/api2/json"
 pm_api_token              = "terraform@pve!terraform-token=<your-token-obtained-via-ansible>"
 pm_tls_insecure           = true
+ci_hostname               = "<hostname>"
 ci_username               = "<username>"
 ci_password               = "<password>"
 ci_ssh_public_key         = "<your-ssh-pub-key>"
