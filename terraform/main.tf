@@ -46,6 +46,23 @@ locals {
   # Number of VMs
   control_plane_count = 3
   worker_count        = 3
+
+  nodes = concat(
+    [
+      for vm in proxmox_virtual_environment_vm.control_planes :
+      {
+        name = vm.name
+        ip   = element(split("/", vm.initialization[0].ip_config[0].ipv4[0].address), 0)
+      }
+    ],
+    [
+      for vm in proxmox_virtual_environment_vm.workers :
+      {
+        name = vm.name
+        ip   = element(split("/", vm.initialization[0].ip_config[0].ipv4[0].address), 0)
+      }
+    ]
+  )
 }
 
 # ---------- CLOUD-INIT FILES PER WORKER NODE ----------
@@ -257,5 +274,37 @@ resource "proxmox_virtual_environment_vm" "workers" {
       servers = ["1.1.1.1", "8.8.8.8"]
     }
   }
+}
+
+resource "local_file" "ssh_config" {
+  depends_on = [
+    proxmox_virtual_environment_vm.control_planes,
+    proxmox_virtual_environment_vm.workers
+  ]
+
+  filename = "${path.module}/output/ssh/ssh-config-k8s"
+
+  content = templatefile("${path.module}/templates/ssh-config.tftpl", {
+    nodes          = local.nodes
+    node_username  = var.ci_username
+    bastion_host   = "kube-lab"
+    key_path       = "~/.ssh/id_rsa"
+  })
+}
+
+output "ssh_config_generated" {
+  depends_on = [local_file.ssh_config]
+
+  value = <<EOF
+
+SSH config has been generated.
+
+-> Check the file:
+    ${path.module}/output/ssh/ssh-config-k8s
+
+You can append it to your ~/.ssh/config:
+    cat ${path.module}/output/ssh/ssh-config-k8s >> ~/.ssh/config
+
+  EOF
 }
 

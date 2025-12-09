@@ -1,0 +1,11 @@
+# ---- KUBERNETES NODES ----
+%{ for node in nodes ~}
+Host ${node.name}
+    HostName ${node.ip}
+    User ${node_username}
+    IdentityFile ${key_path}
+    StrictHostKeyChecking no
+    ServerAliveInterval 60
+    ProxyJump ${bastion_host}
+
+%{ endfor ~}
