@@ -48,7 +48,7 @@ ansible/secrets/*
 ansible/inventory/hosts.ini
 
 # Ignore kubespray inventory.ini because we generate it via terraform
-kubespray/nat_cluster/inventory.ini
+kubespray/inventory/inventory.ini
 
 # Ignore kubespray credentials
 kubespray/inventory/credentials
