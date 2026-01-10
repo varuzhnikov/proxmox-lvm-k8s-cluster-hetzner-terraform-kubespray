@@ -40,3 +40,15 @@ terraform/output/*
 
 # Ignore generated secrets file after running proxmox_terraform_access
 ansible/secrets/*
+
+# Ignore custom .env file
+.env
+
+# Ignore generated hosts.ini inventory file for dedicated server
+ansible/inventory/hosts.ini
+
+# Ignore kubespray inventory.ini because we generate it via terraform
+kubespray/nat_cluster/inventory.ini
+
+# Ignore kubespray credentials
+kubespray/inventory/credentials

@@ -25,7 +25,7 @@ provider "proxmox" {
 
   ssh {
     agent       = false
-    private_key = file(var.pm_ssh_private_key_path)
+    private_key = file(var.pm_host_ssh_private_key_path)
     username    = var.pm_ssh_username
   }
 }
@@ -47,22 +47,24 @@ locals {
   control_plane_count = 3
   worker_count        = 3
 
-  nodes = concat(
-    [
-      for vm in proxmox_virtual_environment_vm.control_planes :
-      {
-        name = vm.name
-        ip   = element(split("/", vm.initialization[0].ip_config[0].ipv4[0].address), 0)
-      }
-    ],
-    [
-      for vm in proxmox_virtual_environment_vm.workers :
-      {
-        name = vm.name
-        ip   = element(split("/", vm.initialization[0].ip_config[0].ipv4[0].address), 0)
-      }
-    ]
-  )
+  control_planes = [
+    for vm in proxmox_virtual_environment_vm.control_planes :
+    {
+      name = vm.name
+      ip   = element(split("/", vm.initialization[0].ip_config[0].ipv4[0].address), 0)
+    }
+  ]
+
+  workers = [
+    for vm in proxmox_virtual_environment_vm.workers :
+    {
+      name = vm.name
+      ip   = element(split("/", vm.initialization[0].ip_config[0].ipv4[0].address), 0)
+    }
+  ]
+
+
+  nodes = concat(local.control_planes, local.workers)
 }
 
 # ---------- CLOUD-INIT FILES PER WORKER NODE ----------
@@ -288,7 +290,23 @@ resource "local_file" "ssh_config" {
     nodes          = local.nodes
     node_username  = var.ci_username
     bastion_host   = "kube-lab"
-    key_path       = "~/.ssh/id_rsa"
+    key_path       = var.pm_vms_ssh_private_key_path
+  })
+}
+
+resource "local_file" "kubespray_inventory" {
+  depends_on = [
+    proxmox_virtual_environment_vm.control_planes,
+    proxmox_virtual_environment_vm.workers
+  ]
+
+  filename = "${path.module}/../kubespray/inventory/inventory.ini"
+
+  content = templatefile("${path.module}/templates/inventory.ini.tftpl", {
+    control_planes               = local.control_planes
+    workers                      = local.workers
+    node_username                = var.ci_username
+    vms_ssh_private_key_path     = var.pm_vms_ssh_private_key_path
   })
 }
 

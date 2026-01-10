@@ -17,11 +17,18 @@ variable "pm_ssh_username" {
   default     = "root"
 }
 
-variable "pm_ssh_private_key_path" {
+variable "pm_host_ssh_private_key_path" {
   type        = string
   description = "SSH private key path using to uploading Cloud-init snippets on Proxmox host"
   default     = "~/.ssh/id_rsa"
 }
+
+variable "pm_vms_ssh_private_key_path" {
+  type        = string
+  description = "SSH private key path using to access VMs behind the NAT"
+  default     = "~/.ssh/id_rsa"
+}
+
 
 variable "pm_tls_insecure" {
   type        = bool
@@ -45,7 +52,6 @@ variable "pm_ip" {
   type        = string
   description = "Proxmox ip address"
 }
-
 
 variable "pm_snippets_datastore_id" {
   type        = string

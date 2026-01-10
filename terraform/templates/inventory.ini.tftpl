@@ -1,0 +1,36 @@
+# ---------------------------
+# Kubespray Inventory Template
+# ---------------------------
+
+[all]
+%{ for control_plane in control_planes ~}
+${control_plane.name} ansible_host=${control_plane.ip}
+%{ endfor ~}
+%{ for worker in workers ~}
+${worker.name} ansible_host=${worker.ip}
+%{ endfor ~}
+
+[kube_control_plane]
+%{ for control_plane in control_planes ~}
+${control_plane.name} ansible_host=${control_plane.ip}
+%{ endfor ~}
+
+[etcd]
+%{ for control_plane in control_planes ~}
+${control_plane.name} ansible_host=${control_plane.ip}
+%{ endfor ~}
+
+[kube_node]
+%{ for worker in workers ~}
+${worker.name} ansible_host=${worker.ip}
+%{ endfor ~}
+
+[k8s_cluster:children]
+kube_control_plane
+kube_node
+
+[all:vars]
+ansible_user=${node_username}
+ansible_become=true
+ansible_ssh_common_args='-o ProxyJump=kube-lab -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+ansible_ssh_private_key_file=${vms_ssh_private_key_path}
