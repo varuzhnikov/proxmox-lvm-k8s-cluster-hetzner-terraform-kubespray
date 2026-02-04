@@ -4,8 +4,8 @@ This repo helps you deploy a **Kubernetes cluster** on top of **Proxmox VE**, us
 - 💽 LVM-backed storage (vg0)
 - 🌐 NAT-based networking via vmbr0
 - 🏗️ Automated setup via **Ansible**
-- ☁️ Virtual machine provisioning via **Terraform**
-- ⚙️ Cluster bootstrap via **Kubespray**
+- ☁️  Virtual machine provisioning via **Terraform**
+- ⚙️  Cluster bootstrap via **Kubespray**
 
 ## 🧱 Architecture
 
@@ -86,7 +86,17 @@ After confirming:
 
 #### 5. Run ansible to install proxmox and setup NAT network and lvm storage
 
-Clone repo and adjust a server ip address in the ```ansible/inventory/hosts.ini```
+Clone the repo and copy ```.env.example```:
+```
+cp .env.example .env
+``` 
+
+Adjust a dedicated server ip address, ssh key paths for the dedicated server itself and for Proxmox VMs to be created.
+After that source ```prepare_env.sh```:
+```
+source prepare_env.sh
+```
+It will generate an ansible/inventory/hosts.ini with one entry - dedicated server itself and export all required ENV variables for both Ansible and Terraform.
 
 After that:
 ```bash
@@ -118,16 +128,53 @@ terraform plan -out "k8s"
 terraform apply "k8s"
 ```
 
-After playing with that in case you don't need it anymore, destroy with:
+#### 7. Deploy Kubernetes cluster behind NAT using Kubespay:
+
+Move to kubespray folder:
 
 ```
+cd kubespray
+./deploy_cluster.sh
+```
+
+#### 8. Connect to cluster
+
+In case you're running WSL on Ubuntu or Debian based systems, install kubectl if you don't have it:
+```
+cd kubespray
+./install_kubectl_deb.sh
+```
+
+Then from the folder kubespray use tmux:
+```
+tmux new -s kube-lab
+```
+Type ```Ctrl + B then C``` to create a new tab.
+When move to the first tab using ```Ctrl + B then P```
+Run SSH port forwarding script to get access to the cluster behind NAT:
+```
+./ssh_forward_kube_api.sh
+```
+Move to the second tab using ```Ctrl + B then N```.
+Then list all available nodes:
+```
+kubectl get nodes -o wide
+```
+
+#### 9. Destroy the cluster
+
+After playing with that in case you don't need it anymore, destroy with:
+```
+cd terraform
 terraform destroy
 ```
 
 📌 For a full step-by-step guide, see the :
  
-* [companion article part 2](https://blog.hogmetrics.com/how-to-create-a-proxmox-vm-template-with-ubuntu-22-04-cloud-init-and-deploy-vm-clones-via-terraform-bpg-proxmox/)
-* [companion article part 3]
+* [companion article part 1](https://open.substack.com/pub/ruzhnikov/p/64gb-ram-kubernetes-cluster-for-39month?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
+* [companion article part 2](https://open.substack.com/pub/ruzhnikov/p/turning-proxmox-into-a-private-cloud?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
+* [companion article part 3](https://open.substack.com/pub/ruzhnikov/p/proxmox-terraform-automatically-creating?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
+* [companion article part 4](https://open.substack.com/pub/ruzhnikov/p/kubespray-ssh-proxyjump-deploying?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
 
 
 ## 🛠️ Features
@@ -140,9 +187,9 @@ terraform destroy
 ## 🔜 Roadmap
 
 * ✅ Ansible role for Proxmox + LVM + NAT + [Cloud Init Ubuntu 22.04 VM Template] + [ Terraform User Token Role Creation ]   
-* Terraform Proxmox provider setup (In progress)
-* Kubespray integration
-* Monitoring + observability layer (Prometheus, Grafana)
+* ✅ Terraform Proxmox provider setup
+* ✅ Kubespray integration
+* HAProxy integration
 
 📌 Author
 
