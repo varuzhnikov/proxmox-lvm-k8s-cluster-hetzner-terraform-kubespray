@@ -1,0 +1,6 @@
+---
+# HAProxy configuration file path on the target system
+haproxy_config_path: /etc/haproxy/haproxy.cfg
+
+# HAProxy service name
+haproxy_service: haproxy

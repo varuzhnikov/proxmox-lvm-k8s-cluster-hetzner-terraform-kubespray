@@ -1,0 +1,12 @@
+---
+- name: reload haproxy
+  systemd:
+    name: "{{ haproxy_service }}"
+    state: reloaded
+  become: yes
+
+- name: restart haproxy
+  systemd:
+    name: "{{ haproxy_service }}"
+    state: restarted
+  become: yes

@@ -16,4 +16,7 @@
     - role: proxmox_vm_template
       tags:
         - bootstrap
-        - proxmox_vm_template        # Builds golden vm template for cloning via Terraform 
+        - proxmox_vm_template        # Builds golden vm template for cloning via Terraform
+    - role: haproxy
+      tags:
+        - haproxy                    # Installs and configures HAProxy load balancer

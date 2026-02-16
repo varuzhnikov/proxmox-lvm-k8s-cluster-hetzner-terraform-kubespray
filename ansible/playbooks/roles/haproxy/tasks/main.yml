@@ -1,0 +1,47 @@
+---
+- name: Install HAProxy package
+  apt:
+    name: haproxy
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Copy HAProxy configuration file to temporary location
+  copy:
+    src: haproxy.cfg
+    dest: "{{ haproxy_config_path }}.tmp"
+    mode: '0644'
+  become: yes
+
+- name: Validate HAProxy configuration from temporary file
+  command: haproxy -c -f "{{ haproxy_config_path }}.tmp"
+  register: haproxy_config_check
+  changed_when: false
+  failed_when: haproxy_config_check.rc != 0
+  become: yes
+
+- name: Replace HAProxy configuration file after successful validation
+  copy:
+    src: "{{ haproxy_config_path }}.tmp"
+    dest: "{{ haproxy_config_path }}"
+    mode: '0644'
+    # Create backup of existing config before overwriting
+    # Backup files are stored with timestamp suffix (e.g., haproxy.cfg.2024-01-01@12:00:00~)
+    # This allows rollback if the new config causes runtime issues after deployment
+    backup: yes
+    remote_src: yes
+  become: yes
+  notify: reload haproxy
+
+- name: Remove temporary HAProxy configuration file
+  file:
+    path: "{{ haproxy_config_path }}.tmp"
+    state: absent
+  become: yes
+
+- name: Enable and start HAProxy service
+  systemd:
+    name: "{{ haproxy_service }}"
+    enabled: yes
+    state: started
+  become: yes

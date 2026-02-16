@@ -25,7 +25,7 @@ provider "proxmox" {
 
   ssh {
     agent       = false
-    private_key = file(var.pm_host_ssh_private_key_path)
+    private_key = file(pathexpand(var.pm_host_ssh_private_key_path))
     username    = var.pm_ssh_username
   }
 }
@@ -158,7 +158,7 @@ resource "proxmox_virtual_environment_vm" "control_planes" {
 
   disk {
     interface    = "scsi0"
-    datastore_id = "local-lvm"
+    datastore_id = var.pm_lvm_datastore_id
     size         = 20
     iothread     = true
     discard      = "on"
@@ -238,7 +238,7 @@ resource "proxmox_virtual_environment_vm" "workers" {
 
   disk {
     interface    = "scsi0"
-    datastore_id = "local-lvm"
+    datastore_id = var.pm_lvm_datastore_id
     size         = 20
     iothread     = true
     discard      = "on"
@@ -290,7 +290,7 @@ resource "local_file" "ssh_config" {
     nodes          = local.nodes
     node_username  = var.ci_username
     bastion_host   = "kube-lab"
-    key_path       = var.pm_vms_ssh_private_key_path
+    key_path       = pathexpand(var.pm_vms_ssh_private_key_path)
   })
 }
 
@@ -306,7 +306,21 @@ resource "local_file" "kubespray_inventory" {
     control_planes               = local.control_planes
     workers                      = local.workers
     node_username                = var.ci_username
-    vms_ssh_private_key_path     = var.pm_vms_ssh_private_key_path
+    vms_ssh_private_key_path     = pathexpand(var.pm_vms_ssh_private_key_path)
+  })
+}
+
+resource "local_file" "haproxy_config" {
+  depends_on = [
+    proxmox_virtual_environment_vm.control_planes,
+    proxmox_virtual_environment_vm.workers
+  ]
+
+  filename = "${path.module}/../ansible/playbooks/roles/haproxy/templates/haproxy.cfg"
+
+  content = templatefile("${path.module}/templates/haproxy.cfg.tftpl", {
+    control_planes = local.control_planes
+    workers        = local.workers
   })
 }
 
@@ -325,4 +339,3 @@ You can append it to your ~/.ssh/config:
 
   EOF
 }
-
