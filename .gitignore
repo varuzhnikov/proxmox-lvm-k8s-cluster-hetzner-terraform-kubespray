@@ -47,6 +47,9 @@ ansible/secrets/*
 # Ignore generated hosts.ini inventory file for dedicated server
 ansible/inventory/hosts.ini
 
+# Ignore generated via Terraform haproxy.cfg file 
+ansible/playbooks/roles/haproxy/files/haproxy.cfg
+
 # Ignore kubespray inventory.ini because we generate it via terraform
 kubespray/inventory/inventory.ini
 
