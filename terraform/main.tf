@@ -316,7 +316,7 @@ resource "local_file" "haproxy_config" {
     proxmox_virtual_environment_vm.workers
   ]
 
-  filename = "${path.module}/../ansible/playbooks/roles/haproxy/templates/haproxy.cfg"
+  filename = "${path.module}/../ansible/playbooks/roles/haproxy/files/haproxy.cfg"
 
   content = templatefile("${path.module}/templates/haproxy.cfg.tftpl", {
     control_planes = local.control_planes

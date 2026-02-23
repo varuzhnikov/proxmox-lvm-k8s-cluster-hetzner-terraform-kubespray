@@ -6,6 +6,101 @@
     update_cache: yes
   become: yes
 
+- name: Ensure HAProxy configuration directory exists
+  file:
+    path: /etc/haproxy
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Check if allow_domains.txt exists locally
+  stat:
+    path: "{{ role_path }}/files/allow_domains.txt"
+  register: allow_domains_local_file
+  delegate_to: localhost
+  run_once: true
+
+- name: Display error message if allow_domains.txt is missing
+  debug:
+    msg:
+      - ""
+      - "============================================================================"
+      - "ERROR: File allow_domains.txt is required but not found locally!"
+      - "============================================================================"
+      - ""
+      - "Please create the file locally before deploying:"
+      - "  {{ role_path }}/files/allow_domains.txt"
+      - ""
+      - "You can use the example file as a reference:"
+      - "  cp {{ role_path }}/files/allow_domains.txt.example {{ role_path }}/files/allow_domains.txt"
+      - "  vi {{ role_path }}/files/allow_domains.txt"
+      - "  Or use: nano {{ role_path }}/files/allow_domains.txt (if you prefer)"
+      - ""
+      - "Format: One domain per line"
+      - "  - Exact domain: example.com"
+      - "  - Wildcard: .example.com (with leading dot, matches *.example.com)"
+      - ""
+      - "Example content:"
+      - "  example.com"
+      - "  www.example.com"
+      - "  .example.com"
+      - ""
+      - "After creating the file locally, run this playbook again."
+      - "============================================================================"
+      - ""
+  when: not allow_domains_local_file.stat.exists
+  delegate_to: localhost
+  run_once: true
+  failed_when: false
+
+- name: Fail if allow_domains.txt is missing locally
+  fail:
+    msg: "File allow_domains.txt is required. See error message above for details."
+  when: not allow_domains_local_file.stat.exists
+  delegate_to: localhost
+  run_once: true
+
+- name: Display error message if allow_domains.txt is empty
+  debug:
+    msg:
+      - ""
+      - "============================================================================"
+      - "ERROR: File allow_domains.txt exists locally but is empty!"
+      - "============================================================================"
+      - ""
+      - "Please add at least one allowed domain to:"
+      - "  {{ role_path }}/files/allow_domains.txt"
+      - ""
+      - "Format: One domain per line"
+      - "  - Exact domain: example.com"
+      - "  - Wildcard: .example.com (with leading dot, matches *.example.com)"
+      - ""
+      - "Example content:"
+      - "  example.com"
+      - "  www.example.com"
+      - "  .example.com"
+      - "============================================================================"
+      - ""
+  when: allow_domains_local_file.stat.exists and allow_domains_local_file.stat.size == 0
+  delegate_to: localhost
+  run_once: true
+  failed_when: false
+
+- name: Fail if allow_domains.txt is empty locally
+  fail:
+    msg: "File allow_domains.txt is empty. See error message above for details."
+  when: allow_domains_local_file.stat.exists and allow_domains_local_file.stat.size == 0
+  delegate_to: localhost
+  run_once: true
+
+- name: Copy allow_domains.txt to Proxmox host
+  copy:
+    src: allow_domains.txt
+    dest: /etc/haproxy/allow_domains.txt
+    mode: '0644'
+  become: yes
+  notify: reload haproxy
+
 - name: Copy HAProxy configuration file to temporary location
   copy:
     src: haproxy.cfg

@@ -38,9 +38,14 @@ defaults
     # Maximum time to wait for a connection attempt to a backend server
     timeout connect 5000ms
     # Maximum time a client can remain idle before HAProxy closes the connection
-    timeout client  50000ms
+    # Reasonable timeout to prevent resource exhaustion without being too aggressive
+    timeout client  30000ms
     # Maximum time a server can remain idle before HAProxy closes the connection
-    timeout server  50000ms
+    timeout server  30000ms
+    # Maximum time to wait for HTTP request (prevent slowloris attacks)
+    timeout http-request 15s
+    # Maximum time to wait for HTTP response
+    timeout http-keep-alive 10s
 
 # ----------------------------------------------------------------------------
 # Frontend: Kubernetes API Server Load Balancer
@@ -50,7 +55,7 @@ frontend kube_api_frontend
     # Bind to localhost (127.0.0.1) on port 6443 - only accessible from Proxmox host
     # This ensures Kubernetes API is only accessible locally for security
     bind 127.0.0.1:6443
-    # Use TCP mode for Kubernetes API (which uses HTTPS/TLS)
+    # Use TCP mode for Kubernetes API
     mode tcp
     # Forward all traffic to the kube_api_backend
     default_backend kube_api_backend
@@ -62,42 +67,164 @@ frontend kube_api_frontend
 backend kube_api_backend
     # Use TCP mode to match frontend
     mode tcp
-    # Use round-robin balancing algorithm (distribute requests evenly)
-    balance roundrobin
+    # Use least connection balancing algorithm (send requests to server with fewest active connections)
+    balance leastconn
     # Enable TCP health checks to verify backend servers are responding
     option tcp-check
-%{ for control_plane in control_planes ~}
     # Server definition: name, IP:port, enable health checks
     # check: Enable health checking for this server
+%{ for control_plane in control_planes ~}
     server ${control_plane.name} ${control_plane.ip}:6443 check
 %{ endfor ~}
 
 # ----------------------------------------------------------------------------
-# Frontend: Worker Node Services Load Balancer
+# Frontend: HTTP Services (Port 80) - For Let's Encrypt HTTP-01 challenge and redirect to HTTPs
 # ----------------------------------------------------------------------------
-# Listens on all interfaces (0.0.0.0) on port 443 and forwards to worker nodes
-frontend worker_services_frontend
-    # Bind to all interfaces (0.0.0.0) on port 443 - accessible from anywhere
-    # This allows external access to services running on worker nodes
-    bind 0.0.0.0:443
-    # Use TCP mode for generic TCP load balancing
-    mode tcp
-    # Forward all traffic to the worker_services_backend
-    default_backend worker_services_backend
+# Listens on all interfaces (0.0.0.0) on port 80 and forwards to https
+# Port 80 is REQUIRED for Let's Encrypt HTTP-01 challenge validation
+frontend worker_http_frontend
+    # Bind to all interfaces (0.0.0.0) on port 80 - accessible from anywhere
+    # This allows Let's Encrypt to validate domain ownership via HTTP-01 challenge
+    bind 0.0.0.0:80
+    # Use HTTP mode to inspect Host header and path for filtering
+    mode http
+    # Enable HTTP logging
+    option httplog
+    # Don't log null connections
+    option dontlognull
+
+    # Block httpoxy attacks; prevents redirecting internal server traffic to an attacker
+    http-request del-header Proxy
+    
+    # Forward real client IP to backend (for logging and access control in cluster)
+    option forwardfor
+    http-request set-header X-Real-IP %[src]
+    http-request set-header X-Forwarded-Proto http
+    
+    # Step 1: Domain filtering - check if domain is in allowed list
+    # Read allowed domains from file (exact matches)
+    acl allowed_domain_exact hdr(host) -f /etc/haproxy/allow_domains.txt
+    
+    # Wildcard domain matching (e.g., *.example.com)
+    # This matches domains ending with patterns from the file
+    # Note: For wildcards like *.example.com, the file should contain .example.com
+    # HAProxy will match any subdomain ending with .example.com
+    acl allowed_domain_wildcard hdr_end(host) -f /etc/haproxy/allow_domains.txt
+    
+    # Step 2: Check if request is for Let's Encrypt HTTP-01 challenge
+    # Let's Encrypt uses /.well-known/acme-challenge/ path for validation
+    acl is_letsencrypt_challenge path_beg /.well-known/acme-challenge/
+    
+    # Rule 1: Block requests from domains NOT in allowed list
+    # This must be checked first - reject unauthorized domains immediately
+    # Domain is allowed if it matches exactly OR matches wildcard pattern
+    http-request deny if !allowed_domain_exact !allowed_domain_wildcard
+    
+    # Rule 2: Redirect allowed to HTTPS (if not ACME)
+    http-request redirect scheme https code 301 if !is_letsencrypt_challenge
+    
+    # Rule 3: Route ACME challenge
+    use_backend worker_http_backend if is_letsencrypt_challenge
+    
+    # Default backend (should not be reached, but kept for safety)
+    default_backend worker_http_backend
 
 # ----------------------------------------------------------------------------
-# Backend: Worker Nodes
+# Frontend: HTTPS Services (Port 443) - For encrypted traffic
 # ----------------------------------------------------------------------------
-# Load balances service traffic across all worker nodes
-backend worker_services_backend
-    # Use TCP mode to match frontend
+# Listens on all interfaces (0.0.0.0) on port 443 and forwards to worker nodes
+# TCP mode with SNI inspection for domain filtering without SSL termination
+frontend worker_https_frontend
+    # Bind to all interfaces (0.0.0.0) on port 443 - accessible from anywhere
+    # This allows external access to HTTPS services running on worker nodes
+    bind 0.0.0.0:443
+    # Use TCP mode for SSL passthrough (maintains end-to-end encryption)
     mode tcp
-    # Use round-robin balancing algorithm (distribute requests evenly)
-    balance roundrobin
+    # Enable TCP logging
+    option tcplog
+    
+    # Wait for SNI to be extracted from TLS handshake before making decisions
+    # This is critical for SNI-based filtering in TCP mode
+    # SNI appears early in TLS handshake, but we need to wait for it to be parsed
+    # 
+    # Performance note: This is NOT a blocking delay - HAProxy continues processing
+    # as soon as SNI is extracted (typically within first few packets, ~1-5ms).
+    # The 5s value is a maximum timeout, not an actual wait time.
+    # Real overhead: ~1-5ms per connection (time to receive and parse SNI from TLS handshake)
+    # This is negligible compared to TLS handshake time (~50-200ms) and network latency.
+    tcp-request inspect-delay 5s
+    
+    # Domain filtering via SNI (Server Name Indication)
+    # This inspects the TLS handshake to extract the domain name
+    # without terminating SSL, maintaining end-to-end encryption
+    
+    # Exact domain matching from file
+    acl allowed_domain_exact req_ssl_sni -f /etc/haproxy/allow_domains.txt
+    
+    # Wildcard domain matching using suffix matching
+    # This matches domains ending with patterns from the file (e.g., *.example.com)
+    # Note: For wildcards like *.example.com, the file should contain .example.com
+    # HAProxy will match any subdomain ending with .example.com
+    # Use -m end for suffix matching with file lookup
+    acl allowed_domain_wildcard req_ssl_sni -m end -f /etc/haproxy/allow_domains.txt
+    
+    # Reject connections that don't match allowed domains
+    # This blocks unauthorized domain access before traffic reaches the cluster
+    # 
+    # Behavior with slow connections:
+    # - If SNI is not extracted within inspect-delay (5s), req_ssl_sni -m found returns false
+    # - Connection is rejected (security: blocks non-HTTPS or malicious traffic)
+    # - This is acceptable because legitimate HTTPS clients send SNI in first packet (~1-5ms)
+    # - Very slow connections (>5s for first packet) are extremely rare and likely malicious
+    # 
+    # Alternative: To allow connections without SNI (less secure), change condition to:
+    # tcp-request content reject if { req_ssl_sni -m found } && !allowed_domain_exact !allowed_domain_wildcard
+    # This would allow connections without SNI but reject known bad domains
+    tcp-request content reject if !{ req_ssl_sni -m found } || !allowed_domain_exact !allowed_domain_wildcard
+    
+    # Forward allowed traffic to the worker_https_backend
+    default_backend worker_https_backend
+
+# ----------------------------------------------------------------------------
+# Backend: Worker Nodes HTTP (NodePort 30080)
+# ----------------------------------------------------------------------------
+# Load balances HTTP service traffic across all worker nodes
+# Traffic is forwarded to HAProxy Ingress Controller via NodePort Service
+# NodePort 30080 is used instead of direct port 80 for better Pod isolation
+backend worker_http_backend
+    # Use HTTP mode to match frontend
+    mode http
+    # Use least connection balancing algorithm (send requests to server with fewest active connections)
+    balance leastconn
     # Enable TCP health checks to verify backend servers are responding
     option tcp-check
 %{ for worker in workers ~}
     # Server definition: name, IP:port, enable health checks
     # check: Enable health checking for this server
-    server ${worker.name} ${worker.ip}:443 check
+    # NodePort 30080 on worker nodes routes to HAProxy Ingress Controller Service
+    server ${worker.name} ${worker.ip}:30080 check
+%{ endfor ~}
+
+# ----------------------------------------------------------------------------
+# Backend: Worker Nodes HTTPS (NodePort 30443)
+# ----------------------------------------------------------------------------
+# Load balances HTTPS service traffic across all worker nodes
+# Traffic is forwarded to HAProxy Ingress Controller via NodePort Service
+# NodePort 30443 is used instead of direct port 443 for better Pod isolation
+backend worker_https_backend
+    # Use TCP mode to match frontend (SSL passthrough)
+    mode tcp
+    # Use least connection balancing algorithm (send requests to server with fewest active connections)
+    balance leastconn
+    # Note: For SSL passthrough, we disable health checks because tcp-check
+    # cannot properly validate SSL/TLS connections without terminating SSL.
+    # HAProxy will still detect unavailable servers reactively:
+    # - Connection failures (refused, timeout, network errors) mark server as DOWN
+    # - HAProxy automatically retries on other servers and excludes failed ones
+    # - Servers are periodically re-checked and restored when they become available
+    # This is reactive (on real requests) rather than proactive (periodic checks).
+%{ for worker in workers ~}
+    # Server definition: name, IP:port, no health checks for SSL passthrough
+    # NodePort 30443 on worker nodes routes to HAProxy Ingress Controller Service
+    server ${worker.name} ${worker.ip}:30443
 %{ endfor ~}

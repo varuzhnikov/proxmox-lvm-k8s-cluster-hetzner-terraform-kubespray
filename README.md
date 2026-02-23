@@ -15,9 +15,9 @@ This repo helps you deploy a **Kubernetes cluster** on top of **Proxmox VE**, us
 
 ## 📦 Contents
 
-- `ansible/` — installs Proxmox VE on Debian, configures vmbr0 NAT bridge, and connects LVM
-- `terraform/` — (in progress) spins up VMs on Proxmox
-- `kubespray/` — (planned) cluster bootstrap
+- `ansible/` — installs Proxmox VE on Debian, configures vmbr0 NAT bridge, connects LVM, builds Ubuntu 22.04 LTS Proxmox VM Template, generates role, user and Proxmox API token for Terraform, installs HAProxy as an entry point to the cluster and deploys rendered by Terraform HAProxy config. 
+- `terraform/` — provisions VMs on Proxmox, generates the Kubespray inventory with SSH ProxyJump, and creates an HAProxy configuration to distribute traffic among the Kubernetes control plane and worker nodes
+- `kubespray/` — cluster bootstrap using generated via Terraform Kubespray inventory 
 
 ## 🚀 Quickstart
 
@@ -137,12 +137,28 @@ cd kubespray
 ./deploy_cluster.sh
 ```
 
-#### 8. Connect to cluster
+#### 8. Deploy HAProxy to load balance API endpoints and worker nodes
+
+Deploy HAProxy for load balancing API endpoints on 6443 port and worker nodes on 443 port:
+```
+cd ansible
+ANSIBLE_CONFIG=./ansible.cfg ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags haproxy
+```
+
+#### 9. Connect to cluster
 
 In case you're running WSL on Ubuntu or Debian based systems, install kubectl if you don't have it:
 ```
 cd kubespray
 ./install_kubectl_deb.sh
+```
+Download kubeconfig:
+```
+./download_kube_config.sh
+```
+Follow the  instruction to export KUBECONFIG, something like that (running in WSL in my case ):
+```
+export KUBECONFIG=/root/.kube/kube-lab.conf
 ```
 
 Then from the folder kubespray use tmux:
@@ -189,7 +205,7 @@ terraform destroy
 * ✅ Ansible role for Proxmox + LVM + NAT + [Cloud Init Ubuntu 22.04 VM Template] + [ Terraform User Token Role Creation ]   
 * ✅ Terraform Proxmox provider setup
 * ✅ Kubespray integration
-* HAProxy integration
+* ✅ HAProxy integration
 
 📌 Author
 

@@ -30,3 +30,13 @@ Host kube-lab
     ServerAliveInterval 30
     ServerAliveCountMax 5
 EOF
+
+# Set KUBECONFIG for this project
+KUBECONFIG_FILE="$HOME/.kube/kube-lab.conf"
+export KUBECONFIG="$KUBECONFIG_FILE"
+
+echo
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "⚠️  ATTENTION: KUBECONFIG has been set to: $KUBECONFIG_FILE"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo

@@ -1,0 +1,64 @@
+controller:
+  # Use DaemonSet to run one pod per node for distributed traffic processing
+  kind: DaemonSet
+  
+  # Network service configuration
+  service:
+    type: NodePort
+    # 'Local' preserves the client source IP and avoids extra hops between nodes
+    externalTrafficPolicy: Local
+    nodePorts:
+      http: 30080
+      https: 30443
+  
+  # HAProxy internal configuration (via ConfigMap)
+  config:
+    # PROXY Protocol configuration:
+    # - For HTTPS (port 30443): Proxmox HAProxy sends PROXY protocol v2 headers
+    #   However, HAProxy Ingress Controller cannot use PROXY Protocol because it has global
+    #   use-proxy-protocol setting that applies to all ports, and HTTP traffic (including
+    #   Let's Encrypt challenge) must NOT use PROXY Protocol to avoid 400 Bad Request errors
+    # - For HTTP (port 30080): PROXY Protocol is NOT used
+    #   Real client IP is passed via X-Forwarded-For and X-Real-IP headers
+    # 
+    # LIMITATION: HAProxy Ingress Controller doesn't support per-port PROXY Protocol configuration.
+    # If we enable use-proxy-protocol: "true", it expects PROXY Protocol on ALL ports, including HTTP,
+    # which breaks HTTP-01 challenge validation (400 Bad Request).
+    # 
+    # SOLUTION: Disable PROXY Protocol globally and use:
+    # - HTTP: X-Forwarded-For and X-Real-IP headers (works fine, configured in Proxmox HAProxy frontend)
+    # - HTTPS: externalTrafficPolicy: Local preserves real client IP (works, but less reliable than PROXY Protocol)
+    use-proxy-protocol: "false"
+    # Optional: security hardening to hide HAProxy version
+    # server-tokens: "false"
+    # Note: Do not set rate-limit annotations in ConfigMap without rate-limit-requests
+    # Rate limiting should be configured per Ingress resource, not globally
+    # If you need global rate limiting, uncomment and set all required values:
+    # rate-limit-requests: "100"
+    # rate-limit-period: "10s"
+    # rate-limit-size: "200"
+    # rate-limit-status-code: "429"
+    # SSL redirect is handled by Proxmox HAProxy (not by HAProxy Ingress Controller)
+    # Proxmox HAProxy redirects HTTP to HTTPS, but allows /.well-known/acme-challenge/ to pass through
+    # Disabling ssl-redirect here to prevent double redirect and allow HTTP-01 challenge to work
+    ssl-redirect: "false"
+
+  # Resource management
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  # Enable built-in Prometheus metrics exporter
+  metrics:
+    enabled: true
+
+# IngressClass resource configuration
+# Use 'ingressClassName: haproxy' in your Ingress manifests
+ingressClassResource:
+  enabled: true
+  name: haproxy
+  default: false 

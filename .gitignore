@@ -50,8 +50,15 @@ ansible/inventory/hosts.ini
 # Ignore generated via Terraform haproxy.cfg file 
 ansible/playbooks/roles/haproxy/files/haproxy.cfg
 
+# Ignore user-specific allow_domains.txt
+ansible/playbooks/roles/haproxy/files/allow_domains.txt
+
 # Ignore kubespray inventory.ini because we generate it via terraform
 kubespray/inventory/inventory.ini
 
 # Ignore kubespray credentials
 kubespray/inventory/credentials
+
+# Ignore user-specific Kubernetes manifests in examples (may contain real domains/secrets)
+examples/**/ingress.yaml
+examples/**/cluster-issuer.yaml

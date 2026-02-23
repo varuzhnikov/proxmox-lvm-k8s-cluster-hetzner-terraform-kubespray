@@ -1,0 +1,39 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: podinfo
+  annotations:
+    # Enable cert-manager to automatically provision SSL certificate
+    # IMPORTANT: Start with "letsencrypt-staging" for testing, then switch to "letsencrypt-prod"
+    # Staging: No rate limits, but certificates are not trusted (browser warning - this is normal)
+    # Production: Trusted certificates, but subject to Let's Encrypt rate limits
+    # See examples/02-letsencrypt.md for detailed explanation
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"  # Change to "letsencrypt-prod" when certificate issuer works
+    # Redirect HTTP to HTTPS (handled by HAProxy Ingress)
+    haproxy.org/ssl-redirect: "true"
+    # Rate limiting configuration (prevents abuse)
+    # Allow 100 requests per 10 seconds, with a burst size of 200 requests
+    haproxy.org/rate-limit-requests: "100"
+    haproxy.org/rate-limit-period: "10s"
+    haproxy.org/rate-limit-size: "200"
+    haproxy.org/rate-limit-status-code: "429"
+spec:
+  # Use HAProxy Ingress Controller (modern way, replaces deprecated annotation)
+  ingressClassName: haproxy
+  # TLS configuration - cert-manager will create the certificate
+  tls:
+  - hosts:
+    - your-domain.com  # CHANGE THIS to your actual domain
+    secretName: podinfo-tls  # cert-manager will create this secret
+  rules:
+  - host: your-domain.com  # CHANGE THIS to your actual domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: podinfo
+            port:
+              number: 9898

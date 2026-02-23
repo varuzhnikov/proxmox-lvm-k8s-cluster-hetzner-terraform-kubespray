@@ -1,0 +1,19 @@
+# Allowed domains for HAProxy domain filtering
+# One domain per line (without http:// or https://)
+# 
+# Supported formats:
+# - Exact domain: example.com
+# - Wildcard subdomain: .example.com (note: dot at the beginning, matches *.example.com)
+#   This will match: api.example.com, www.example.com, any.example.com, etc.
+# - Exact subdomain: api.example.com
+#
+# IMPORTANT: For wildcard domains, use .example.com (with leading dot) instead of *.example.com
+# This allows HAProxy to match any subdomain using suffix matching
+#
+# Examples:
+# example.com
+# www.example.com
+# api.example.com
+# .example.com          # Matches *.example.com (any subdomain)
+# .mydomain.com         # Matches *.mydomain.com (any subdomain)
+# test.example.org
