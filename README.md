@@ -139,6 +139,34 @@ cd kubespray
 
 #### 8. Deploy HAProxy to load balance API endpoints and worker nodes
 
+**8a. Prepare domain allowlist:**
+
+Before deploying HAProxy, create and edit the domain allowlist file locally. This file will be automatically deployed to the Proxmox host via Ansible:
+
+```bash
+cd ansible/playbooks/roles/haproxy/files/
+cp allow_domains.txt.example allow_domains.txt
+vi allow_domains.txt
+# Or use: nano allow_domains.txt (if you prefer)
+```
+
+Add your domains (one per line):
+- Exact domain: `example.com`
+- Exact subdomain: `www.example.com`
+- Wildcard subdomain: `.example.com` (with leading dot, matches `*.example.com`)
+
+Example content:
+```
+example.com
+www.example.com
+api.example.com
+.example.com          # Matches *.example.com (any subdomain)
+```
+
+**Important:** This file must exist locally before running the HAProxy Ansible playbook. Ansible will copy it to `/etc/haproxy/allow_domains.txt` on the Proxmox host automatically.
+
+**8b. Deploy HAProxy:**
+
 Deploy HAProxy for load balancing API endpoints on 6443 port and worker nodes on 443 port:
 ```
 cd ansible
@@ -177,7 +205,78 @@ Then list all available nodes:
 kubectl get nodes -o wide
 ```
 
-#### 9. Destroy the cluster
+#### 10. Deploy examples (HAProxy Ingress, cert-manager, podinfo)
+
+**Prerequisites:** Configure DNS to point your domain to the Proxmox host IP address.
+
+**10a. Deploy HAProxy Ingress Controller:**
+
+```bash
+helm repo add haproxytech https://haproxytech.github.io/helm-charts
+helm repo update
+helm install haproxy-ingress haproxytech/kubernetes-ingress \
+  --namespace haproxy-controller \
+  --create-namespace \
+  -f examples/01-haproxy-ingress/values.yaml
+```
+
+**10b. Install cert-manager for Let's Encrypt SSL certificates:**
+
+```bash
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set crds.enabled=true
+```
+
+Wait for cert-manager pods to be ready:
+```bash
+kubectl get pods -n cert-manager
+```
+
+**10c. Create ClusterIssuer:**
+
+Copy the example file and edit it locally with your email:
+
+```bash
+cd examples
+cp 02-letsencrypt/cluster-issuer.yaml.example 02-letsencrypt/cluster-issuer.yaml
+# Edit cluster-issuer.yaml and replace 'your-email@example.com' with your email
+vi 02-letsencrypt/cluster-issuer.yaml
+# Or use: nano 02-letsencrypt/cluster-issuer.yaml (if you prefer)
+kubectl apply -f 02-letsencrypt/cluster-issuer.yaml
+```
+
+**10d. Deploy podinfo application with HTTPS:**
+
+Copy example files and edit them locally:
+
+```bash
+cd examples
+
+# Deploy podinfo
+kubectl apply -f 03-podinfo/deployment.yaml
+
+# Create Ingress (start with staging issuer for testing)
+cp 03-podinfo/ingress.yaml.example 03-podinfo/ingress.yaml
+# Edit ingress.yaml:
+# 1. Replace 'your-domain.com' with your actual domain
+# 2. Set cluster-issuer to "letsencrypt-staging" for testing
+vi 03-podinfo/ingress.yaml
+# Or use: nano 03-podinfo/ingress.yaml (if you prefer)
+kubectl apply -f 03-podinfo/ingress.yaml
+
+# Wait for certificate (1-2 minutes)
+kubectl get certificate podinfo-tls -n default -w
+
+# After staging certificate works, switch to production issuer:
+# Edit ingress.yaml and change cluster-issuer to "letsencrypt-prod"
+vi 03-podinfo/ingress.yaml
+kubectl apply -f 03-podinfo/ingress.yaml
+```
+
+Your podinfo application is now accessible via HTTPS at `https://your-domain.com`
+
+#### 11. Destroy the cluster
 
 After playing with that in case you don't need it anymore, destroy with:
 ```
