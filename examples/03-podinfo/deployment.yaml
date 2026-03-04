@@ -22,7 +22,12 @@ metadata:
   labels:
     app: podinfo
 spec:
-  replicas: 2
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: podinfo
@@ -31,6 +36,19 @@ spec:
       labels:
         app: podinfo
     spec:
+      # Distribute pods across different nodes for better availability
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - podinfo
+              topologyKey: kubernetes.io/hostname
       containers:
       - name: podinfod
         image: ghcr.io/stefanprodan/podinfo:6.5.2
@@ -63,3 +81,13 @@ spec:
             port: http
           initialDelaySeconds: 5
           periodSeconds: 10
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: podinfo
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: podinfo
