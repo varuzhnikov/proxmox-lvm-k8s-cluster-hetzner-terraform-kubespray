@@ -69,12 +69,22 @@ backend kube_api_backend
     mode tcp
     # Use least connection balancing algorithm (send requests to server with fewest active connections)
     balance leastconn
+    # Enable automatic retry on another server if current server fails
+    option redispatch
     # Enable TCP health checks to verify backend servers are responding
     option tcp-check
-    # Server definition: name, IP:port, enable health checks
+    # Health check interval: check every 2 seconds
+    # fall: mark server down after 2 consecutive failures
+    # rise: mark server up after 2 consecutive successes
+    # inter: interval between health checks
+    # Server definition: name, IP:port, enable health checks with fast failure detection
     # check: Enable health checking for this server
+    # inter 2s: check every 2 seconds
+    # fall 2: mark down after 2 failures
+    # rise 2: mark up after 2 successes
+    # fastinter 1s: faster checks when server is down
 %{ for control_plane in control_planes ~}
-    server ${control_plane.name} ${control_plane.ip}:6443 check
+    server ${control_plane.name} ${control_plane.ip}:6443 check inter 2s fall 2 rise 2 fastinter 1s
 %{ endfor ~}
 
 # ----------------------------------------------------------------------------
@@ -120,11 +130,11 @@ frontend worker_http_frontend
     # Domain is allowed if it matches exactly OR matches wildcard pattern
     http-request deny if !allowed_domain_exact !allowed_domain_wildcard
     
-    # Rule 2: Redirect allowed to HTTPS (if not ACME)
-    http-request redirect scheme https code 301 if !is_letsencrypt_challenge
-    
-    # Rule 3: Route ACME challenge
+    # Rule 3: Route other ACME challenges to worker backend
     use_backend worker_http_backend if is_letsencrypt_challenge
+    
+    # Rule 4: Redirect allowed to HTTPS (if not ACME)
+    http-request redirect scheme https code 301 if !is_letsencrypt_challenge
     
     # Default backend (should not be reached, but kept for safety)
     default_backend worker_http_backend
@@ -196,13 +206,24 @@ backend worker_http_backend
     mode http
     # Use least connection balancing algorithm (send requests to server with fewest active connections)
     balance leastconn
+    # Enable automatic retry on another server if current server fails
+    option redispatch
     # Enable TCP health checks to verify backend servers are responding
     option tcp-check
+    # Faster timeout for health checks (fail quickly if node is down)
+    timeout check 2s
+    # Health check interval: check every 2 seconds
+    # fall: mark server down after 2 consecutive failures
+    # rise: mark server up after 2 consecutive successes
+    # inter: interval between health checks
 %{ for worker in workers ~}
-    # Server definition: name, IP:port, enable health checks
+    # Server definition: name, IP:port, enable health checks with fast failure detection
     # check: Enable health checking for this server
+    # inter 2s: check every 2 seconds
+    # fall 2: mark down after 2 failures
+    # rise 2: mark up after 2 successes
     # NodePort 30080 on worker nodes routes to HAProxy Ingress Controller Service
-    server ${worker.name} ${worker.ip}:30080 check
+    server ${worker.name} ${worker.ip}:30080 check inter 2s fall 2 rise 2
 %{ endfor ~}
 
 # ----------------------------------------------------------------------------
@@ -216,15 +237,23 @@ backend worker_https_backend
     mode tcp
     # Use least connection balancing algorithm (send requests to server with fewest active connections)
     balance leastconn
-    # Note: For SSL passthrough, we disable health checks because tcp-check
-    # cannot properly validate SSL/TLS connections without terminating SSL.
-    # HAProxy will still detect unavailable servers reactively:
+    # Enable automatic retry on another server if current server fails
+    option redispatch
+    # Faster timeout for health checks (fail quickly if node is down)
+    timeout check 2s
+    # Note: For SSL passthrough, we use basic TCP connection checks
+    # HAProxy will detect unavailable servers reactively:
     # - Connection failures (refused, timeout, network errors) mark server as DOWN
     # - HAProxy automatically retries on other servers and excludes failed ones
     # - Servers are periodically re-checked and restored when they become available
     # This is reactive (on real requests) rather than proactive (periodic checks).
 %{ for worker in workers ~}
-    # Server definition: name, IP:port, no health checks for SSL passthrough
+    # Server definition: name, IP:port, basic TCP connection check
+    # check: Enable basic TCP connection check (not full SSL validation)
+    # inter 2s: check connection every 2 seconds
+    # fall 2: mark down after 2 connection failures
+    # rise 2: mark up after 2 successful connections
+    # fastinter 1s: faster checks when server is down
     # NodePort 30443 on worker nodes routes to HAProxy Ingress Controller Service
-    server ${worker.name} ${worker.ip}:30443
+    server ${worker.name} ${worker.ip}:30443 check inter 2s fall 2 rise 2 fastinter 1s
 %{ endfor ~}
