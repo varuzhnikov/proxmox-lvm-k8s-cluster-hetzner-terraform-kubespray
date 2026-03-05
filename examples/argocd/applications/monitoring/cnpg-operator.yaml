@@ -1,0 +1,48 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cnpg-operator
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Sync wave: 1 - Install operator first (before PostgreSQL clusters)
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/description: "CloudNativePG Operator for PostgreSQL cluster management"
+spec:
+  project: default
+  
+  source:
+    # CNPG Operator Helm chart repository
+    repoURL: https://charts.cloudnative-pg.io
+    chart: cloudnative-pg
+    targetRevision: 0.20.0  # Check latest version at https://github.com/cloudnative-pg/cloudnative-pg/releases
+    helm:
+      # Helm values for CNPG Operator
+      values: |
+        # Operator configuration
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cnpg-system
+  
+  syncPolicy:
+    automated:
+      prune: false      # Don't auto-delete resources
+      selfHeal: true    # Auto-fix deviations from Git
+    syncOptions:
+      - CreateNamespace=true  # Automatically create namespace
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
