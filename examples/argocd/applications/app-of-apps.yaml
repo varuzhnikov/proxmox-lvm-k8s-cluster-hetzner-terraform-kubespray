@@ -1,0 +1,50 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps
+  namespace: argocd
+  # Finalizer ensures that when Application is deleted, ArgoCD first removes
+  # all managed resources before deleting the Application itself
+  # This prevents orphaned resources in the cluster
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Description for ArgoCD UI
+    argocd.argoproj.io/description: "Parent Application that manages all child Applications"
+spec:
+  project: default
+  
+  source:
+    # Specify your Git repository
+    repoURL: https://github.com/varuzhnikov/proxmox-lvm-k8s-cluster-hetzner-terraform-kubespray  # REPLACE with your repository
+    targetRevision: part_9  # Or master, or specific tag/commit
+    path: examples/argocd/applications
+    directory:
+      # Recursively finds all Application manifests in subdirectories
+      recurse: true
+      # Exclude app-of-apps.yaml itself to avoid recursion
+      exclude: "app-of-apps.yaml"
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  
+  syncPolicy:
+    # Automatic synchronization - ArgoCD will sync from Git
+    automated:
+      prune: true      # Delete resources that are not in Git
+      selfHeal: true    # Automatically fix deviations from Git
+      allowEmpty: false # Don't create Application if there are no children
+    # Sync options
+    syncOptions:
+      - CreateNamespace=true  # Automatically create namespaces
+      - PrunePropagationPolicy=foreground  # Delete resources in foreground mode
+      - PruneLast=true  # Delete resources last (safer)
+    # Retry on errors
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
