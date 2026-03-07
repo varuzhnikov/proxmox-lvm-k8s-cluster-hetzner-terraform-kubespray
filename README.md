@@ -106,7 +106,7 @@ ANSIBLE_CONFIG=./ansible.cfg ansible-playbook -i inventory/hosts.ini playbooks/s
 
 Terraform token will be saved under ansible/secrets folder(ignored by Git)
 
-📌 For a full step-by-step guide, see the [companion article](https://blog.hogmetrics.com/64gb-ram-kubernetes-cluster-for-eu39-month-part-1-proxmox-lvm/)
+📌 For a full step-by-step guide, see [64GB RAM Kubernetes Cluster for €39/month - Part 1: Proxmox & LVM](https://open.substack.com/pub/ruzhnikov/p/64gb-ram-kubernetes-cluster-for-39month?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
 
 #### 6. Spin up six Ubuntu VM (3 Control Planes + 3 Worker nodes) on Proxmox VE via Terraform
 
@@ -118,7 +118,7 @@ cp terraform.tfvars.example terraform.tfvars
 
 Put the token from the file obtained on step 5 (ansible/secrets folder) into the terraform.tfvars, adjust a server ip address, and your pub ssh key.
 
-📌 Set up HCP Terraform for remote state storing and lock acquiring, see the [companion article](https://blog.hogmetrics.com/how-to-store-terraform-state-in-terraform-cloud-free-tier/) 
+📌 Set up HCP Terraform for remote state storing and lock acquiring, see [How to Store Terraform State in Terraform Cloud (Free Tier)](https://blog.hogmetrics.com/how-to-store-terraform-state-in-terraform-cloud-free-tier/) 
 
 Spin up a cluster VMs:
 
@@ -300,13 +300,13 @@ cd terraform
 terraform destroy
 ```
 
-📌 For a full step-by-step guide, see the :
+📌 For a full step-by-step guide, see:
  
-* [companion article part 1](https://open.substack.com/pub/ruzhnikov/p/64gb-ram-kubernetes-cluster-for-39month?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
-* [companion article part 2](https://open.substack.com/pub/ruzhnikov/p/turning-proxmox-into-a-private-cloud?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
-* [companion article part 3](https://open.substack.com/pub/ruzhnikov/p/proxmox-terraform-automatically-creating?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
-* [companion article part 4](https://open.substack.com/pub/ruzhnikov/p/kubespray-ssh-proxyjump-deploying?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
-* [companion article part 5 ](https://open.substack.com/pub/ruzhnikov/p/kubespray-ssh-proxyjump-deploying?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
+1. [64GB RAM Kubernetes Cluster for €39/month](https://open.substack.com/pub/ruzhnikov/p/64gb-ram-kubernetes-cluster-for-39month?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
+2. [Turning Proxmox into a Private Cloud](https://open.substack.com/pub/ruzhnikov/p/turning-proxmox-into-a-private-cloud?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
+3. [Proxmox Terraform: Automatically Creating VMs](https://open.substack.com/pub/ruzhnikov/p/proxmox-terraform-automatically-creating?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
+4. [Kubespray SSH ProxyJump: Deploying Kubernetes](https://open.substack.com/pub/ruzhnikov/p/kubespray-ssh-proxyjump-deploying?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
+5. [Stateless ArgoCD for Bare Metal Kubernetes](https://open.substack.com/pub/ruzhnikov/p/stateless-argocd-for-bare-metal-kubernetes?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
 
 
 
