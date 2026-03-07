@@ -276,7 +276,23 @@ kubectl apply -f 03-podinfo/ingress.yaml
 
 Your podinfo application is now accessible via HTTPS at `https://your-domain.com`
 
-#### 11. Destroy the cluster
+#### 11. Install ArgoCD (HA Stateless Configuration)
+
+Install ArgoCD with high availability and stateless configuration that prevents hanging when worker nodes are shut down or become unreachable:
+
+```bash
+cd kubespray
+./install_argocd.sh
+```
+
+This configuration uses fast pod eviction (90s), 3 replicas with pod anti-affinity, and Deployment instead of StatefulSet to ensure ArgoCD remains available even when nodes are shut down for maintenance or fail.
+
+To deploy the app-of-apps pattern:
+```bash
+kubectl apply -f examples/argocd/applications/app-of-apps.yaml
+```
+
+#### 12. Destroy the cluster
 
 After playing with that in case you don't need it anymore, destroy with:
 ```
@@ -290,6 +306,8 @@ terraform destroy
 * [companion article part 2](https://open.substack.com/pub/ruzhnikov/p/turning-proxmox-into-a-private-cloud?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
 * [companion article part 3](https://open.substack.com/pub/ruzhnikov/p/proxmox-terraform-automatically-creating?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
 * [companion article part 4](https://open.substack.com/pub/ruzhnikov/p/kubespray-ssh-proxyjump-deploying?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
+* [companion article part 5 ](https://open.substack.com/pub/ruzhnikov/p/kubespray-ssh-proxyjump-deploying?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
+
 
 
 ## 🛠️ Features
