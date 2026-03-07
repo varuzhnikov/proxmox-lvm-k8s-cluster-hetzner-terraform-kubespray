@@ -1,0 +1,136 @@
+# examples/argocd/values-ha-stateless.yaml
+#
+# High Availability (HA) Stateless ArgoCD Configuration
+# 
+# This configuration addresses a critical edge case: with default ArgoCD installation,
+# when worker nodes are shut down or become unreachable, ArgoCD pods can hang on
+# those nodes for up to 5 minutes (default tolerationSeconds), causing service
+# unavailability. This configuration reduces eviction time to 90 seconds and ensures
+# proper pod distribution across nodes for high availability.
+#
+global:
+  # Fast controller eviction from dead/unreachable nodes (90 seconds)
+  # 
+  # PROBLEM: Default ArgoCD tolerations allow pods to stay on unreachable/not-ready
+  # nodes for 300 seconds (5 minutes). When workers are shut down for maintenance,
+  # ArgoCD pods remain scheduled on those nodes, causing:
+  # - Service unavailability (UI/API unreachable)
+  # - Sync operations fail
+  # - No automatic recovery until node comes back or timeout expires
+  #
+  # SOLUTION: Reduce tolerationSeconds to 90 seconds so Kubernetes evicts pods
+  # from dead nodes quickly and reschedules them on healthy nodes.
+  #
+  # This ensures ArgoCD remains available even when nodes are shut down for
+  # maintenance or in case of node failures.
+  tolerations:
+    - key: "node.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 90  # Evict after 90s instead of default 300s
+    - key: "node.kubernetes.io/not-ready"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 90  # Evict after 90s instead of default 300s
+
+controller:
+  # Convert controller from StatefulSet to Deployment for stateless operation
+  # 
+  # CRITICAL ISSUE WITH STATEFULSET: StatefulSet can hang indefinitely when a node
+  # becomes unreachable. This is a real-world problem observed in production:
+  #
+  # - When a node with StatefulSet pod becomes unreachable, the pod enters
+  #   "Terminating" state but cannot be fully deleted because Kubernetes cannot
+  #   communicate with the node to gracefully terminate the pod
+  # - StatefulSet will NOT create a replacement pod until the old pod is fully
+  #   deleted (unlike Deployment which can create new pods immediately)
+  # - If the node never comes back or is permanently lost, the StatefulSet pod
+  #   can remain in "Terminating" state forever, leaving the service unavailable
+  # - Manual intervention (force delete pod, delete node object) is required
+  #
+  # WHY DEPLOYMENT: Deployment allows pods to be rescheduled freely on any
+  # available node without waiting for the old pod to terminate. Even if a pod
+  # is stuck in Terminating state, Deployment can create new pods immediately,
+  # ensuring service availability.
+  #
+  # ADDITIONAL BENEFITS: StatefulSet requires stable network identity and
+  # persistent storage, making pods less mobile. Deployment is stateless and
+  # mobile, improving recovery time when nodes fail.
+  #
+  # For a 3-node cluster, one controller instance is sufficient. The controller
+  # handles application reconciliation and can quickly migrate to healthy nodes
+  # if the current node becomes unavailable (thanks to fast tolerations above).
+  type: deployment  # Stateless deployment instead of StatefulSet (avoids indefinite hangs)
+  replicas: 1       # One controller is enough for 3 nodes, can migrate quickly
+
+repoServer:
+  # Repository server handles Git repository operations (clone, fetch, etc.)
+  # 
+  # WHY 3 REPLICAS: High availability - if one node fails, other repo servers
+  # continue serving requests. With 3 replicas and podAntiAffinity, we ensure
+  # one repo server per node, so a single node failure doesn't take down all
+  # repository operations.
+  #
+  # POD ANTI-AFFINITY: Ensures repo servers are distributed across different
+  # nodes. This prevents all replicas from being on the same node, which would
+  # cause complete service loss if that node is shut down (the edge case we're
+  # solving). With requiredDuringSchedulingIgnoredDuringExecution, Kubernetes
+  # will not schedule multiple repo servers on the same node.
+  replicas: 3       # One per node for HA
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: argocd-repo-server
+        topologyKey: "kubernetes.io/hostname"  # Distribute across nodes
+
+server:
+  # ArgoCD server provides UI and API endpoints
+  #
+  # WHY 3 REPLICAS: High availability for UI/API access. With 3 replicas and
+  # podAntiAffinity, we ensure the server is always available even when a node
+  # is shut down. Load balancer can route traffic to remaining healthy instances.
+  #
+  # WITHOUT THIS: Default single replica on one node means if that node is shut
+  # down, ArgoCD UI/API becomes completely unavailable until the node returns or
+  # pod is manually rescheduled (the edge case we're solving).
+  #
+  # POD ANTI-AFFINITY: Distributes server instances across nodes, preventing
+  # all servers from being on the same node. Combined with fast tolerations,
+  # ensures service remains available during node maintenance or failures.
+  replicas: 3       # UI/API always available without waiting for migration
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: argocd-server
+        topologyKey: "kubernetes.io/hostname"  # Distribute across nodes
+
+redis:
+  # Redis cache for ArgoCD session storage and caching
+  #
+  # STATELESS CONFIGURATION: Disable persistent volumes, use in-memory storage
+  #
+  # WHY: 
+  # 1. Stateless design - allows Redis pods to migrate freely between nodes
+  #    without being tied to specific storage volumes
+  # 2. Faster recovery - no need to wait for volume attachments when nodes fail
+  # 3. Simpler operations - no PV/PVC management overhead
+  #
+  # TRADE-OFF: Cache data is lost on pod restart, but this is acceptable because:
+  # - Redis is used for caching, not critical state
+  # - ArgoCD can rebuild cache from Git repositories
+  # - Session data is ephemeral by nature
+  # - Faster recovery is more valuable than cache persistence
+  #
+  # This complements the fast tolerations - Redis can quickly migrate to
+  # healthy nodes when workers are shut down, without waiting for storage.
+  enabled: true
+  # Disable persistent volumes for stateless operation
+  persistentVolume:
+    enabled: false
+  # Use in-memory storage (emptyDir with Memory medium)
+  emptyDir:
+    medium: Memory  # Fast, stateless, allows quick pod migration
