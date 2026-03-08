@@ -287,7 +287,29 @@ cd kubespray
 
 This configuration uses fast pod eviction (90s), 3 replicas with pod anti-affinity, and Deployment instead of StatefulSet to ensure ArgoCD remains available even when nodes are shut down for maintenance or fail.
 
-To deploy the app-of-apps pattern:
+Wait for ArgoCD server to be ready:
+```bash
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+```
+
+**Access ArgoCD UI:**
+
+Set up port forwarding to access ArgoCD UI:
+```bash
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+```
+
+Get the admin password:
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo
+```
+
+Login to ArgoCD:
+- Open browser: `https://localhost:8080`
+- Username: `admin`
+- Password: (use the password from the command above)
+
+**Deploy app-of-apps pattern:**
 ```bash
 kubectl apply -f examples/argocd/applications/app-of-apps.yaml
 ```
