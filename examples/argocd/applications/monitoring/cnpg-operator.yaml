@@ -15,7 +15,8 @@ spec:
   
   source:
     # CNPG Operator Helm chart repository
-    repoURL: https://charts.cloudnative-pg.io
+    # Official repository: https://github.com/cloudnative-pg/charts
+    repoURL: https://cloudnative-pg.github.io/charts
     chart: cloudnative-pg
     targetRevision: 0.20.0  # Check latest version at https://github.com/cloudnative-pg/cloudnative-pg/releases
     helm:
