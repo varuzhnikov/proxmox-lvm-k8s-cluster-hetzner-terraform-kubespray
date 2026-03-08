@@ -2,14 +2,45 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: postgres
-  namespace: database
+  namespace: monitoring
 spec:
   instances: 1
 
   storage:
     size: 1Gi
+    # StorageClass - adjust based on your cluster's available storage classes
+    # Common options: local-path, nfs-client, ceph-rbd, etc.
+    # If not specified, uses default StorageClass
+    storageClass: "local-path"  # Use Rancher Local Path Provisioner
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
 
   bootstrap:
     initdb:
       database: app
       owner: app
+      # Optional: use secret for credentials
+      # secret:
+      #   name: postgres-credentials
+
+  # Backup configuration (optional but recommended)
+  # backup:
+  #   barmanObjectStore:
+  #     destinationPath: "s3://bucket-name/backup-path"
+  #     s3Credentials:
+  #       accessKeyId:
+  #         name: backup-credentials
+  #         key: ACCESS_KEY_ID
+  #       secretAccessKey:
+  #         name: backup-credentials
+  #         key: SECRET_ACCESS_KEY
+  #     wal:
+  #       retention: "7d"
+  #     data:
+  #       retention: "30d"
