@@ -1,0 +1,83 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/description: "Prometheus monitoring"
+spec:
+  project: default
+  
+  source:
+    # Prometheus Community Helm charts repository
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: prometheus
+    targetRevision: 27.0.0  # Check latest version at https://github.com/prometheus-community/helm-charts/releases
+    helm:
+      values: |
+        # Prometheus server configuration
+        server:
+          # Resource limits for Prometheus
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          
+          # Retention period for metrics
+          retention: 15d
+          
+          # Storage configuration
+          persistentVolume:
+            enabled: true
+            storageClass: local-path  # Adjust to your StorageClass
+            size: 20Gi
+          
+          # Service configuration
+          service:
+            type: ClusterIP
+            # Uncomment for NodePort access:
+            # type: NodePort
+            # nodePort: 30090
+        
+        # Node exporter (collects node metrics)
+        nodeExporter:
+          enabled: true
+        
+        # Kube-state-metrics (collects Kubernetes object metrics)
+        kubeStateMetrics:
+          enabled: true
+        
+        # Pushgateway (optional, for push-based metrics)
+        pushgateway:
+          enabled: false
+        
+        # Alertmanager (disabled - only Prometheus)
+        alertmanager:
+          enabled: false
+        
+        # Grafana (disabled - only Prometheus)
+        grafana:
+          enabled: false
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  
+  syncPolicy:
+    automated:
+      prune: false      # Don't auto-delete resources
+      selfHeal: true    # Auto-fix deviations from Git
+    syncOptions:
+      - CreateNamespace=true  # Automatically create namespace
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
