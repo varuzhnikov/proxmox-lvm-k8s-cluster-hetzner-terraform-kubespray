@@ -1,5 +1,3 @@
-# examples/argocd/values-ha-stateless.yaml
-#
 # High Availability (HA) Stateless ArgoCD Configuration
 # 
 # This configuration addresses a critical edge case: with default ArgoCD installation,
@@ -60,8 +58,8 @@ controller:
   # For a 3-node cluster, one controller instance is sufficient. The controller
   # handles application reconciliation and can quickly migrate to healthy nodes
   # if the current node becomes unavailable (thanks to fast tolerations above).
-  type: deployment  # Stateless deployment instead of StatefulSet (avoids indefinite hangs)
-  replicas: 1       # One controller is enough for 3 nodes, can migrate quickly
+  dynamicClusterDistribution: true
+  replicas: 1
 
 repoServer:
   # Repository server handles Git repository operations (clone, fetch, etc.)
