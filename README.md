@@ -324,7 +324,8 @@ terraform destroy
 2. [Turning Proxmox into a Private Cloud](https://open.substack.com/pub/ruzhnikov/p/turning-proxmox-into-a-private-cloud?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
 3. [Proxmox Terraform: Automatically Creating VMs](https://open.substack.com/pub/ruzhnikov/p/proxmox-terraform-automatically-creating?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
 4. [Kubespray SSH ProxyJump: Deploying Kubernetes](https://open.substack.com/pub/ruzhnikov/p/kubespray-ssh-proxyjump-deploying?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
-5. [Stateless ArgoCD for Bare Metal Kubernetes](https://open.substack.com/pub/ruzhnikov/p/stateless-argocd-for-bare-metal-kubernetes?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
+5. [Dual HAProxy Setup on Proxmox & Ingress Controller](LINK_PLACEHOLDER)
+6. [Stateless ArgoCD for Bare Metal Kubernetes](https://open.substack.com/pub/ruzhnikov/p/stateless-argocd-for-bare-metal-kubernetes?r=734lmp&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true)
 
 
 
