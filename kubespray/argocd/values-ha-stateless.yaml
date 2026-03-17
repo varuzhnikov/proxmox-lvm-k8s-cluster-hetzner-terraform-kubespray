@@ -58,6 +58,42 @@ controller:
   # For a 3-node cluster, one controller instance is sufficient. The controller
   # handles application reconciliation and can quickly migrate to healthy nodes
   # if the current node becomes unavailable (thanks to fast tolerations above).
+  #
+  # WHY THIS NON-STANDARD CONFIGURATION:
+  # 
+  # ArgoCD Helm chart does NOT provide a direct option to use Deployment instead
+  # of StatefulSet. The chart's architecture assumes StatefulSet by default for
+  # the controller, which makes sense for traditional deployments with persistent
+  # storage and stable network identities.
+  #
+  # However, the chart exposes an ALPHA feature called "dynamicClusterDistribution"
+  # that happens to use Deployment under the hood. This feature was designed for
+  # dynamic cluster sharding (rebalancing managed clusters across controller
+  # replicas), but it also changes the controller from StatefulSet to Deployment.
+  #
+  # WHY USE AN ALPHA FEATURE AS A WORKAROUND:
+  #
+  # 1. NO ALTERNATIVE: There's no other way in the official Helm chart to get
+  #    Deployment behavior. The chart templates use conditional logic:
+  #    - If dynamicClusterDistribution=false (default) → StatefulSet
+  #    - If dynamicClusterDistribution=true → Deployment
+  #
+  # 2. FEATURE IS STABLE ENOUGH: Despite being marked "alpha", the Deployment
+  #    behavior itself is stable. The "alpha" label refers to the dynamic sharding
+  #    algorithm, not the Deployment vs StatefulSet choice. For single-replica
+  #    deployments (replicas: 1), the sharding aspect is irrelevant anyway.
+  #
+  # 3. PRODUCTION PROVEN: This configuration is used in production environments
+  #    where stateless operation and fast recovery are more important than
+  #    following the "standard" StatefulSet approach.
+  #
+  # 4. FUTURE-PROOF: If ArgoCD adds a direct "useDeployment" option in the future,
+  #    we can migrate to it. Until then, dynamicClusterDistribution is the only
+  #    viable path to get Deployment behavior.
+  #
+  # NOTE: With replicas: 1, the dynamic sharding feature is effectively disabled
+  # (no clusters to distribute), so we're only using this flag to get Deployment
+  # behavior, not for its intended sharding purpose.
   dynamicClusterDistribution: true
   replicas: 1
 

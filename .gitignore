@@ -62,3 +62,6 @@ kubespray/inventory/credentials
 # Ignore user-specific Kubernetes manifests in examples (may contain real domains/secrets)
 examples/**/ingress.yaml
 examples/**/cluster-issuer.yaml
+
+# Ignore vendor folder
+vendor/**
