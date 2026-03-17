@@ -145,9 +145,9 @@ server:
 redis:
   # Redis cache for ArgoCD session storage and caching
   #
-  # STATELESS CONFIGURATION: Disable persistent volumes, use in-memory storage
+  # STATELESS CONFIGURATION: Disable persistent volumes for stateless operation
   #
-  # WHY: 
+  # WHY:
   # 1. Stateless design - allows Redis pods to migrate freely between nodes
   #    without being tied to specific storage volumes
   # 2. Faster recovery - no need to wait for volume attachments when nodes fail
@@ -161,10 +161,11 @@ redis:
   #
   # This complements the fast tolerations - Redis can quickly migrate to
   # healthy nodes when workers are shut down, without waiting for storage.
+  #
+  # NOTE: According to official ArgoCD chart, redis.persistentVolume.enabled: false
+  # disables persistent volumes. The redis-ha subchart will use default storage
+  # (emptyDir) when persistent volumes are disabled.
   enabled: true
   # Disable persistent volumes for stateless operation
   persistentVolume:
     enabled: false
-  # Use in-memory storage (emptyDir with Memory medium)
-  emptyDir:
-    medium: Memory  # Fast, stateless, allows quick pod migration
