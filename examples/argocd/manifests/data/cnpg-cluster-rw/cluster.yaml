@@ -1,0 +1,23 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cnpg-cluster-rw
+spec:
+  description: "Single-instance CNPG cluster with only the rw service"
+  instances: 1
+
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+
+  managed:
+    services:
+      disabledDefaultServices:
+        - ro
+        - r
+
+  storage:
+    storageClass: local-path
+    size: 10Gi
