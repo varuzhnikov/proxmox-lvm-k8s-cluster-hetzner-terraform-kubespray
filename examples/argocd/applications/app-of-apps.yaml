@@ -18,7 +18,7 @@ spec:
   source:
     # Specify your Git repository
     repoURL: https://github.com/varuzhnikov/proxmox-lvm-k8s-cluster-hetzner-terraform-kubespray  # REPLACE with your repository
-    targetRevision: part_9  # Or master, or specific tag/commit
+    targetRevision: part_12  # Or master, or specific tag/commit
     path: examples/argocd/applications
     directory:
       # Recursively finds all Application manifests in subdirectories

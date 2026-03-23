@@ -1,0 +1,35 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cnpg-cluster-rw
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/description: "Single-instance CloudNativePG cluster with only the rw service exposed"
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/varuzhnikov/proxmox-lvm-k8s-cluster-hetzner-terraform-kubespray
+    targetRevision: part_12
+    path: examples/argocd/manifests/data/cnpg-cluster-rw
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: database
+
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
