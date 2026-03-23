@@ -65,3 +65,6 @@ examples/**/cluster-issuer.yaml
 
 # Ignore vendor folder
 vendor/**
+
+# Ignore local agent instructions
+AGENTS.md

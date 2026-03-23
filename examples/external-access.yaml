@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cnpg-cluster-rw-external
+  namespace: database
+spec:
+  type: NodePort
+  selector:
+    # CNPG sets these labels on the primary (RW) pod
+    cnpg.io/cluster: cnpg-cluster-rw
+    cnpg.io/instanceRole: primary
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+      nodePort: 31432 # Leave empty to let Kubernetes assign the port automatically
