@@ -7,6 +7,28 @@ metadata:
 data:
   openclaw.json: |
     {
+      "models": {
+        "mode": "merge",
+        "providers": {
+          "deepseekapi": {
+            "baseUrl": "https://api.deepseek.com/v1",
+            "apiKey": "${DEEPSEEK_API_KEY}",
+            "api": "openai-completions",
+            "models": [
+              {
+                "id": "deepseek-chat",
+                "name": "DeepSeek Chat",
+                "reasoning": false
+              },
+              {
+                "id": "deepseek-reasoner",
+                "name": "DeepSeek Reasoner",
+                "reasoning": true
+              }
+            ]
+          }
+        }
+      },
       "gateway": {
         "mode": "local",
         "bind": "loopback",
@@ -22,7 +44,10 @@ data:
         "defaults": {
           "workspace": "~/.openclaw/workspace",
           "model": {
-            "primary": "deepseek/deepseek-chat"
+            "primary": "deepseekapi/deepseek-chat",
+            "fallbacks": [
+              "deepseekapi/deepseek-reasoner"
+            ]
           }
         },
         "list": [

@@ -314,7 +314,7 @@ kubectl apply -f examples/argocd/applications/app-of-apps.yaml
 
 OpenClaw's official Kubernetes deployment is a Kustomize-based minimal starting point, so this repository manages it as a repo-local ArgoCD application instead of a Helm chart.
 
-Create the runtime secret first. The gateway token is required. This setup defaults OpenClaw to the official `deepseek/deepseek-chat` provider, so add your `DEEPSEEK_API_KEY` to make model calls work:
+Create the runtime secret first. The gateway token is required. This setup uses the direct DeepSeek API through OpenClaw's OpenAI-compatible custom provider path, so add your `DEEPSEEK_API_KEY` to make model calls work:
 
 ```bash
 kubectl create namespace openclaw
@@ -348,7 +348,8 @@ kubectl get secret openclaw-secrets -n openclaw -o jsonpath='{.data.OPENCLAW_GAT
 
 - Open browser: `http://localhost:18789`
 - Paste the gateway token from the command above into the Control UI
-- The default model is `deepseek/deepseek-chat`
+- The default model is `deepseekapi/deepseek-chat`
+- Fallback is `deepseekapi/deepseek-reasoner`
 
 #### 13. Destroy the cluster
 
