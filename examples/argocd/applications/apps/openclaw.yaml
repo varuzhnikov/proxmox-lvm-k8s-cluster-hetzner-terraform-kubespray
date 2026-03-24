@@ -1,0 +1,35 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openclaw
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/description: "OpenClaw deployed from repo-local Kustomize manifests"
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/varuzhnikov/proxmox-lvm-k8s-cluster-hetzner-terraform-kubespray
+    targetRevision: part_12
+    path: examples/argocd/manifests/apps/openclaw
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openclaw
+
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

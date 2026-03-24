@@ -310,7 +310,45 @@ Login to ArgoCD:
 kubectl apply -f examples/argocd/applications/app-of-apps.yaml
 ```
 
-#### 12. Destroy the cluster
+#### 12. Install OpenClaw via ArgoCD
+
+OpenClaw's official Kubernetes deployment is a Kustomize-based minimal starting point, so this repository manages it as a repo-local ArgoCD application instead of a Helm chart.
+
+Create the runtime secret first. The gateway token is required. Add at least one provider API key if you want the assistant to call models immediately:
+
+```bash
+kubectl create namespace openclaw
+
+kubectl create secret generic openclaw-secrets -n openclaw \
+  --from-literal=OPENCLAW_GATEWAY_TOKEN="$(openssl rand -hex 32)"
+
+# Optional: patch in one or more model provider keys later
+kubectl patch secret openclaw-secrets -n openclaw \
+  -p '{"stringData":{"OPENAI_API_KEY":"your-openai-api-key"}}'
+```
+
+Apply the OpenClaw ArgoCD application:
+
+```bash
+kubectl apply -f examples/argocd/applications/apps/openclaw.yaml
+```
+
+Port-forward the OpenClaw gateway to your workstation:
+
+```bash
+kubectl port-forward svc/openclaw -n openclaw 18789:18789
+```
+
+Get the gateway token and open the UI:
+
+```bash
+kubectl get secret openclaw-secrets -n openclaw -o jsonpath='{.data.OPENCLAW_GATEWAY_TOKEN}' | base64 -d && echo
+```
+
+- Open browser: `http://localhost:18789`
+- Paste the gateway token from the command above into the Control UI
+
+#### 13. Destroy the cluster
 
 After playing with that in case you don't need it anymore, destroy with:
 ```
