@@ -20,7 +20,10 @@ data:
       },
       "agents": {
         "defaults": {
-          "workspace": "~/.openclaw/workspace"
+          "workspace": "~/.openclaw/workspace",
+          "model": {
+            "primary": "deepseek/deepseek-chat"
+          }
         },
         "list": [
           {
